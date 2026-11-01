@@ -1,0 +1,84 @@
+== date
+Sun Dec 24 10:59:14 UTC 2023
+== release
+ID=poky
+NAME="Poky (Yocto Project Reference Distro)"
+VERSION="4.0.35 (kirkstone)"
+VERSION_ID=4.0.35
+PRETTY_NAME="Poky (Yocto Project Reference Distro) 4.0.35 (kirkstone)"
+DISTRO_CODENAME="kirkstone"
+cat: can't open '/etc/nv_tegra_release': No such file or directory
+== kernel
+Linux jetson-nano-devkit 4.9.337-l4t-r32.7.6+gd4116ecb5c13 #1 SMP PREEMPT Thu Nov 28 15:26:00 UTC 2024 aarch64 GNU/Linux
+== boot timing (microseconds since kernel start)
+KernelTimestampMonotonic=0
+UserspaceTimestampMonotonic=6083293
+FinishTimestampMonotonic=8904953
+== uptime
+172.20 673.18
+== failed units
+  UNIT LOAD ACTIVE SUB DESCRIPTION
+0 loaded units listed.
+== RAM
+MemTotal:        4055312 kB
+MemFree:         3892812 kB
+MemAvailable:    3845484 kB
+Cached:            40708 kB
+NvMapMemFree:          0 kB
+== disk
+Filesystem                Size      Used Available Use% Mounted on
+/dev/mmcblk0p1           13.0G    177.5M     12.1G   1% /
+== running services
+14
+== running service names
+avahi-daemon.service
+busybox-klogd.service
+busybox-syslog.service
+dbus.service
+getty@tty1.service
+serial-getty@ttyGS0.service
+serial-getty@ttyS0.service
+sshd@0-192.168.55.1:22-172.17.250.242:54744.service
+systemd-journald.service
+systemd-logind.service
+systemd-networkd.service
+systemd-resolved.service
+systemd-timesyncd.service
+systemd-udevd.service
+== listening ports
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       
+tcp        0      0 127.0.0.54:53           0.0.0.0:*               LISTEN      
+tcp        0      0 127.0.0.53:53           0.0.0.0:*               LISTEN      
+tcp        0      0 0.0.0.0:5355            0.0.0.0:*               LISTEN      
+tcp        0      0 :::22                   :::*                    LISTEN      
+tcp        0      0 :::5355                 :::*                    LISTEN      
+== /boot
+lrwxrwxrwx    1 root     root            39 Mar  9  2018 Image -> Image-4.9.337-l4t-r32.7.6+gd4116ecb5c13
+-rw-r--r--    1 root     root      38496264 Mar  9  2018 Image-4.9.337-l4t-r32.7.6+gd4116ecb5c13
+drwxr-xr-x    2 root     root          4096 Mar  9  2018 extlinux
+-rw-r--r--    1 root     root       2321421 Mar  9  2018 initrd
+== kernel modules
+4.9.337-l4t-r32.7.6+gd4116ecb5c13
+85.2M	/lib/modules/4.9.337-l4t-r32.7.6+gd4116ecb5c13
+== loaded modules
+head: invalid option -- '3'
+BusyBox v1.35.0 () multi-call binary.
+
+Usage: head [OPTIONS] [FILE]...
+== GPU device nodes
+/dev/nvhost-as-gpu
+/dev/nvhost-ctrl
+/dev/nvhost-ctrl-gpu
+/dev/nvhost-ctrl-isp
+/dev/nvhost-ctrl-isp.1
+/dev/nvhost-ctrl-nvdec
+/dev/nvhost-ctrl-vi
+/dev/nvhost-ctxsw-gpu
+/dev/nvhost-dbg-gpu
+/dev/nvhost-gpu
+== processes
+head: invalid option -- '2'
+BusyBox v1.35.0 () multi-call binary.
+
+Usage: head [OPTIONS] [FILE]...

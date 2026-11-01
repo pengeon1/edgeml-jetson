@@ -34,4 +34,4 @@ local_conf_header:
     PARALLEL_MAKE = "-j 8"
   dev-access: |
     EXTRA_IMAGE_FEATURES += "ssh-server-openssh debug-tweaks"
-    IMAGE_INSTALL:append = " openssh-sftp-server avahi-daemon"
+    IMAGE_INSTALL:append = " openssh-sftp-server avahi-daemon kernel-modules l4t-usb-device-mode"

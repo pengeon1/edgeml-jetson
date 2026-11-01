@@ -7,3 +7,7 @@ tmp/
 *.engine
 *.deb
 *.tegraflash*
+poky/
+meta-openembedded/
+meta-tegra/
+build/

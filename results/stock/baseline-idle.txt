@@ -1,0 +1,90 @@
+== date
+Sun Nov  1 18:49:59 IST 2026
+== L4T release
+# R32 (release), REVISION: 7.1, GCID: 29818004, BOARD: t210ref, EABI: aarch64, DATE: Sat Feb 19 17:05:08 UTC 2022
+== kernel
+Linux jetsonauv 4.9.253-tegra #1 SMP PREEMPT Sat Feb 19 08:59:22 PST 2022 aarch64 aarch64 aarch64 GNU/Linux
+== power mode
+NVPM WARN: fan mode is not set!
+NV Power Mode: MAXN
+0
+== boot time
+Startup finished in 3.022s (kernel) + 6min 58.837s (userspace) = 7min 1.860s
+graphical.target reached after 6min 58.762s in userspace
+== critical chain
+The time after the unit is active or started is printed after the "@" character.
+The time the unit takes to start is printed after the "+" character.
+
+graphical.target @6min 58.762s
+└─multi-user.target @6min 58.759s
+  └─nv-l4t-usb-device-mode.service @6min 58.270s +486ms
+    └─basic.target @1.002s
+      └─sockets.target @1.001s
+        └─syslog.socket @6min 38.804s
+          └─system.slice @395ms
+            └─-.slice @389ms
+== RAM
+              total        used        free      shared  buff/cache   available
+Mem:           3964         482        2762          29         718        3294
+Swap:          1982           0        1982
+== swap
+NAME       TYPE        SIZE USED PRIO
+/dev/zram0 partition 495.5M   0B    5
+/dev/zram1 partition 495.5M   0B    5
+/dev/zram2 partition 495.5M   0B    5
+/dev/zram3 partition 495.5M   0B    5
+== disk
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/mmcblk0p1   59G   12G   45G  22% /
+== package count
+2351
+== running services
+39
+== listening ports
+State    Recv-Q    Send-Q        Local Address:Port        Peer Address:Port    
+LISTEN   0         128               127.0.0.1:2947             0.0.0.0:*       
+LISTEN   0         128               127.0.0.1:35659            0.0.0.0:*       
+LISTEN   0         128                 0.0.0.0:111              0.0.0.0:*       
+LISTEN   0         128           127.0.0.53%lo:53               0.0.0.0:*       
+LISTEN   0         128                 0.0.0.0:22               0.0.0.0:*       
+LISTEN   0         128                   [::1]:2947                [::]:*       
+LISTEN   0         128                    [::]:111                 [::]:*       
+LISTEN   0         128                    [::]:22                  [::]:*       
+== kernel image size
+-rw-r--r-- 1 root root 34484232 Feb 23  2022 /boot/Image
+== modules size
+78M	/lib/modules/4.9.253-tegra
+== biggest top-level folders
+36K	/root
+92K	/home
+196K	/tmp
+11M	/sbin
+12M	/bin
+13M	/etc
+62M	/boot
+134M	/opt
+448M	/lib
+1.3G	/var
+9.9G	/usr
+12G	/
+== top memory users
+USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+gdm      14616  1.1  2.7 2729308 111688 tty1   Sl+  18:43   0:04 /usr/bin/gnome-shell
+root     12759  0.2  2.1 1001492 86372 ?       Ssl  18:43   0:01 /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
+root     12158  0.3  1.3 1111436 53288 ?       Ssl  18:43   0:01 /usr/bin/containerd
+root     14447  0.1  0.7 6435084 31360 tty1    Sl+  18:43   0:00 /usr/lib/xorg/Xorg vt1 -displayfd 3 -auth /run/user/120/gdm/Xauthority -background none -noreset -keeptty -verbose 3
+gdm      15113  0.0  0.5 886448 22820 tty1     Sl+  18:43   0:00 /usr/lib/gnome-settings-daemon/gsd-media-keys
+gdm      15099  0.0  0.5 333792 22796 tty1     Sl+  18:43   0:00 /usr/lib/gnome-settings-daemon/gsd-xsettings
+gdm      15119  0.0  0.5 334340 22284 tty1     Sl+  18:43   0:00 /usr/lib/gnome-settings-daemon/gsd-power
+gdm      15111  0.0  0.5 333796 22244 tty1     Sl+  18:43   0:00 /usr/lib/gnome-settings-daemon/gsd-keyboard
+gdm      15105  0.1  0.5 481772 21884 tty1     Sl+  18:43   0:00 /usr/lib/gnome-settings-daemon/gsd-color
+== idle power sample
+RAM 765/3964MB (lfb 599x4MB) SWAP 0/1982MB (cached 0MB) IRAM 0/252kB(lfb 252kB) CPU [5%@204,6%@204,3%@204,1%@204] EMC_FREQ 0%@1600 GR3D_FREQ 0%@76 APE 25 PLL@32C CPU@31C iwlwifi@37C PMIC@50C GPU@34C AO@42.5C thermal@32.5C POM_5V_IN 1472/1472 POM_5V_GPU 0/0 POM_5V_CPU 122/122
+RAM 765/3964MB (lfb 599x4MB) SWAP 0/1982MB (cached 0MB) IRAM 0/252kB(lfb 252kB) CPU [1%@102,0%@102,0%@204,0%@204] EMC_FREQ 0%@1600 GR3D_FREQ 0%@76 APE 25 PLL@32C CPU@30.5C iwlwifi@36C PMIC@50C GPU@34C AO@42C thermal@32.5C POM_5V_IN 1472/1472 POM_5V_GPU 0/0 POM_5V_CPU 122/122
+RAM 766/3964MB (lfb 599x4MB) SWAP 0/1982MB (cached 0MB) IRAM 0/252kB(lfb 252kB) CPU [2%@102,1%@102,1%@102,1%@102] EMC_FREQ 0%@1600 GR3D_FREQ 0%@76 APE 25 PLL@32C CPU@31C iwlwifi@36C PMIC@50C GPU@34C AO@42C thermal@32.25C POM_5V_IN 1472/1472 POM_5V_GPU 0/0 POM_5V_CPU 81/108
+RAM 765/3964MB (lfb 599x4MB) SWAP 0/1982MB (cached 0MB) IRAM 0/252kB(lfb 252kB) CPU [2%@102,0%@102,0%@102,0%@102] EMC_FREQ 0%@1600 GR3D_FREQ 0%@76 APE 25 PLL@32C CPU@31C iwlwifi@36C PMIC@50C GPU@34C AO@42C thermal@32.5C POM_5V_IN 1472/1472 POM_5V_GPU 0/0 POM_5V_CPU 122/111
+RAM 765/3964MB (lfb 599x4MB) SWAP 0/1982MB (cached 0MB) IRAM 0/252kB(lfb 252kB) CPU [2%@102,0%@102,0%@102,0%@102] EMC_FREQ 0%@1600 GR3D_FREQ 0%@76 APE 25 PLL@32C CPU@31C iwlwifi@36C PMIC@50C GPU@34C AO@42C thermal@32.5C POM_5V_IN 1472/1472 POM_5V_GPU 0/0 POM_5V_CPU 122/113
+RAM 765/3964MB (lfb 599x4MB) SWAP 0/1982MB (cached 0MB) IRAM 0/252kB(lfb 252kB) CPU [2%@102,0%@102,0%@102,0%@102] EMC_FREQ 0%@1600 GR3D_FREQ 0%@76 APE 25 PLL@32C CPU@31C iwlwifi@36C PMIC@50C GPU@34C AO@42C thermal@32.5C POM_5V_IN 1472/1472 POM_5V_GPU 0/0 POM_5V_CPU 81/108
+RAM 765/3964MB (lfb 599x4MB) SWAP 0/1982MB (cached 0MB) IRAM 0/252kB(lfb 252kB) CPU [2%@102,0%@102,0%@102,0%@102] EMC_FREQ 0%@1600 GR3D_FREQ 0%@76 APE 25 PLL@32C CPU@31C iwlwifi@36C PMIC@50C GPU@34C AO@42.5C thermal@32.25C POM_5V_IN 1472/1472 POM_5V_GPU 0/0 POM_5V_CPU 122/110
+RAM 765/3964MB (lfb 599x4MB) SWAP 0/1982MB (cached 0MB) IRAM 0/252kB(lfb 252kB) CPU [1%@102,0%@102,0%@102,0%@102] EMC_FREQ 0%@1600 GR3D_FREQ 0%@76 APE 25 PLL@32.5C CPU@31C iwlwifi@36C PMIC@50C GPU@34.5C AO@42.5C thermal@32.75C POM_5V_IN 1474/1472 POM_5V_GPU 0/0 POM_5V_CPU 122/111
+RAM 765/3964MB (lfb 599x4MB) SWAP 0/1982MB (cached 0MB) IRAM 0/252kB(lfb 252kB) CPU [3%@102,1%@102,0%@102,0%@102] EMC_FREQ 0%@1600 GR3D_FREQ 0%@76 APE 25 PLL@32C CPU@31C iwlwifi@36C PMIC@50C GPU@34C AO@42C thermal@32.5C POM_5V_IN 1472/1472 POM_5V_GPU 0/0 POM_5V_CPU 81/108

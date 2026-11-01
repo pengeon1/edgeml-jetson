@@ -1,0 +1,9 @@
+build/
+downloads/
+sstate-cache/
+tmp/
+*.img
+*.zip
+*.engine
+*.deb
+*.tegraflash*

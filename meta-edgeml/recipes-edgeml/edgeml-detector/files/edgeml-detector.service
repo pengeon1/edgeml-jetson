@@ -1,0 +1,15 @@
+[Unit]
+Description=EdgeML object detector (camera -> TensorRT -> MQTT)
+After=network.target
+ConditionPathExists=/dev/video0
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+EnvironmentFile=-/etc/edgeml/detector.conf
+ExecStart=/usr/bin/edgeml-detector
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

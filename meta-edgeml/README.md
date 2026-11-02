@@ -5,3 +5,4 @@ Project layer. Holds our own recipes and configuration, so that the build is rep
 | Recipe | What it does |
 | --- | --- |
 | edgeml-config | Wired Ethernet with DHCP (gives the board network time through systemd-timesyncd) and a resolver drop-in that turns LLMNR off (closes port 5355). |
+| edgeml-detector | Webcam (V4L2) to YOLOv5n TensorRT engine to MQTT. C++ program, systemd service `edgeml-detector.service`, settings in `/etc/edgeml/detector.conf`, engine file in `/var/lib/edgeml/`. |

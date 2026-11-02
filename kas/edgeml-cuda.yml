@@ -40,4 +40,4 @@ local_conf_header:
     IMAGE_INSTALL:append = " openssh-sftp-server avahi-daemon kernel-modules l4t-usb-device-mode"
   cuda: |
     L4T_DEB_FEED_BASE = "https://repo.download.nvidia.com/jetson"
-    IMAGE_INSTALL:append = " cuda-cudart libcublas cudnn tensorrt-core tensorrt-plugins-prebuilt tensorrt-trtexec-prebuilt tegra-tools tegra-nvpmodel edgeml-config"
+    IMAGE_INSTALL:append = " cuda-cudart libcublas cudnn tensorrt-core tensorrt-plugins-prebuilt tensorrt-trtexec-prebuilt tegra-tools tegra-nvpmodel edgeml-config edgeml-detector"

@@ -8,6 +8,7 @@
 # jetson_clocks) and the same SD card model on every image you compare.
 # Then run scripts/summarize-runs.sh OUTDIR and scripts/summarize-power.sh.
 set -u
+TEGRA_PID=""
 ENGINE="${1:?usage: bench-trtexec.sh ENGINE OUTDIR [RUNS] [DURATION_S]}"
 OUT="${2:?usage: bench-trtexec.sh ENGINE OUTDIR [RUNS] [DURATION_S]}"
 RUNS="${3:-5}"
@@ -36,6 +37,7 @@ fi
 rm -f "$OUT"/tegrastats.log "$OUT"/trtexec-run*.txt
 if command -v tegrastats >/dev/null 2>&1; then
   $SUDO tegrastats --interval 1000 --logfile "$OUT/tegrastats.log" &
+  TEGRA_PID=$!
 else
   echo "WARNING: tegrastats not found, no power log will be written." >&2
 fi
@@ -50,7 +52,8 @@ while [ "$i" -le "$RUNS" ]; do
   [ "$i" -le "$RUNS" ] && sleep "$COOLDOWN"
 done
 
-$SUDO pkill tegrastats 2>/dev/null
+# BusyBox has no pkill, so stop tegrastats by PID.
+[ -n "${TEGRA_PID:-}" ] && kill "$TEGRA_PID" 2>/dev/null
 echo
 echo "Done. Logs in $OUT"
 echo "Summarise with: scripts/summarize-runs.sh $OUT"

@@ -12,7 +12,8 @@ An application-specific Linux distribution for **edge ML inference on the NVIDIA
 | Stock JetPack baseline (size, boot, RAM, power, inference) | Done |
 | Yocto build for the Nano (no CUDA) | Done |
 | Flash and first boot of our image, SSH over USB | Done |
-| CUDA, cuDNN and TensorRT in the image | In progress: recipes found, downloads confirmed, build config next |
+| CUDA, cuDNN and TensorRT in the image (`kas/edgeml-cuda.yml`) | Built, flashed, stock YOLOv5n engine runs (22.13 vs 22.16 inferences/s) |
+| 5-run benchmark and power on our image | Next (needs nvpmodel, jetson_clocks and tegrastats in the image) |
 | Detector service with camera and MQTT | To do |
 | Kernel trimming (before and after numbers) | To do |
 | Read-only root, hardening, auto-start service | To do |
@@ -54,18 +55,19 @@ Layers are pinned by commit in `kas/edgeml-bsp.yml` and `kas/edgeml-dev.yml`:
 | Power during inference | 6.41 W (module input rail), 3.46 FPS per watt |
 | GPU clock and temperature | Held at 921 MHz, peak 43.75 °C, no throttling |
 
-### Our image v0 versus stock (provisional, no CUDA yet)
+### Our image versus stock (provisional: first CUDA image, one 100-iteration run)
 
 | Metric | Stock | Our image v0 | Change |
 | --- | --- | --- | --- |
 | Boot, kernel start to boot finished | 15.5 s | 8.9 s | 43% faster |
 | RAM in use at idle | 670 MB | 205 MB | 69% less |
-| Used root filesystem | 12 GB | 177.5 MB | 98.5% less (no CUDA yet) |
+| Used root filesystem | 12 GB | 1.4 GB with CUDA 10.2 runtime, cuDNN 8.2.1, TensorRT 8.2.1 (177.5 MB without) | about 88% less |
+| TensorRT throughput, same engine file | 22.16 ± 0.021 inferences/s | 22.13 (one run) | same, within 0.2% |
 | Kernel image | 34.5 MB | 38.5 MB | 12% larger (untrimmed) |
 | Kernel modules | 78 MB | 85 MB | 9% larger |
 | Running services | 39 | 14 | 64% fewer |
 
-These figures will change once CUDA and TensorRT are added. The final comparison uses the complete image. Raw logs are in `results/`.
+Boot, RAM, services and kernel rows were measured on the first image without CUDA and will be re-measured on the CUDA image. The throughput row is a single 100-iteration run, so there is no spread yet. The 5-run benchmark follows. Raw logs are in `results/`.
 
 ## Repository layout
 
@@ -121,6 +123,14 @@ Flashing and first login are in [docs/build-and-flash.md](docs/build-and-flash.m
 - Everything else comes from the Yocto Project and OpenEmbedded layers under their own open-source licences. The build produces a per-package licence manifest.
 
 ## Progress log
+
+### 2026-11-02 (CUDA image)
+- Added `kas/edgeml-cuda.yml` (dev image plus `L4T_DEB_FEED_BASE` and the runtime packages cuda-cudart, libcublas, cudnn, tensorrt-core, tensorrt-plugins-prebuilt, tensorrt-trtexec-prebuilt). The build downloaded everything from NVIDIA's public feed without a login. The manifest lists 781 packages including `tegra-libraries-cuda`.
+- Flashed it. Used root filesystem is 1.4 GB (13 GB partition), against 12 GB on stock.
+- The stock `yolov5n_fp16.engine` (TensorRT 8.2.1) loads and runs unchanged on our image: 22.127 inferences/s, mean latency 45.18 ms, GPU compute 43.88 ms (stock: 22.16, 45.12 ms, 43.83 ms). The 99th percentile of 68.8 ms comes from a single short run without fixed clocks; the 5-run benchmark will replace it.
+- Stock inference logs and summaries are now in `results/stock/`.
+- Fixes: `scripts/flash.sh` now removes the unpack folder with sudo (a previous sudo flash leaves root-owned files). On this image root's home is `/home/root`, so copy files with `scp FILE nano-usb:`. Libraries live in `/usr/lib`.
+- Known: the flash helper prints `fdtput: command not found` (install `device-tree-compiler` on the host).
 
 ### 2026-11-02 (later)
 - Read the pinned meta-tegra recipes for the CUDA stack. The branch has recipes for CUDA 10.2, cuDNN 8.2.1.32 and TensorRT 8.2.1, matching the Nano's JetPack 4.6.x. The `NVIDIA_DEVNET_MIRROR` mechanism exists in the layer but no recipe on this branch uses it.

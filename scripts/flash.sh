@@ -34,7 +34,7 @@ echo
 echo "This erases the SD card in the Nano. Press Enter to continue, Ctrl+C to cancel."
 read -r _
 
-rm -rf "$OUT"
+sudo rm -rf "$OUT"   # earlier sudo flashes leave root-owned __pycache__
 mkdir -p "$OUT"
 # Use tar from a terminal; graphical extractors can produce broken results.
 tar -xf "$PKG" -C "$OUT"

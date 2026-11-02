@@ -12,7 +12,7 @@ An application-specific Linux distribution for **edge ML inference on the NVIDIA
 | Stock JetPack baseline (size, boot, RAM, power, inference) | Done |
 | Yocto build for the Nano (no CUDA) | Done |
 | Flash and first boot of our image, SSH over USB | Done |
-| CUDA, cuDNN and TensorRT in the image | In progress: recipes found, package download route being confirmed |
+| CUDA, cuDNN and TensorRT in the image | In progress: recipes found, downloads confirmed, build config next |
 | Detector service with camera and MQTT | To do |
 | Kernel trimming (before and after numbers) | To do |
 | Read-only root, hardening, auto-start service | To do |
@@ -124,7 +124,7 @@ Flashing and first login are in [docs/build-and-flash.md](docs/build-and-flash.m
 
 ### 2026-11-02 (later)
 - Read the pinned meta-tegra recipes for the CUDA stack. The branch has recipes for CUDA 10.2, cuDNN 8.2.1.32 and TensorRT 8.2.1, matching the Nano's JetPack 4.6.x. The `NVIDIA_DEVNET_MIRROR` mechanism exists in the layer but no recipe on this branch uses it.
-- cuDNN and TensorRT download from NVIDIA's public Jetson package feed (`https://repo.download.nvidia.com/jetson`), so they need no login. The CUDA 10.2 recipes default their feed to a local `file://` path, so the CUDA packages may need to be supplied locally. This is being confirmed by testing the download URLs from the build host.
+- cuDNN and TensorRT download from NVIDIA's public Jetson package feed (`https://repo.download.nvidia.com/jetson`), so they need no login. The CUDA 10.2 recipes default their feed to a local `file://` path, but a `curl -I` test from the build host shows the CUDA, cuDNN and TensorRT packages are all served by the public feed (HTTP 200), so no login or local copy is needed.
 - `tensorrt-trtexec-prebuilt` installs `trtexec` to `/usr/src/tensorrt/bin`, the same place as on stock JetPack, so the benchmark script works unchanged.
 
 ### 2026-11-02

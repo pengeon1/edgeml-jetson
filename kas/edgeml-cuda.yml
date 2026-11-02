@@ -1,0 +1,40 @@
+header:
+  version: 11
+machine: jetson-nano-devkit
+distro: poky
+target: core-image-minimal
+repos:
+  poky:
+    url: https://git.yoctoproject.org/poky
+    branch: kirkstone
+    commit: 445a6223929b9a7a62b575093659e3d9e1aba982
+    layers:
+      meta:
+      meta-poky:
+  meta-openembedded:
+    url: https://github.com/openembedded/meta-openembedded
+    branch: kirkstone
+    commit: ce8539c941f6fcbecaca4d16640ac105c0595589
+    layers:
+      meta-oe:
+      meta-python:
+      meta-networking:
+  meta-tegra:
+    url: https://github.com/OE4T/meta-tegra
+    branch: kirkstone-l4t-r32.7.x
+    commit: 94e3db3146dc273ec1df463426c0fcaeacc51b5f
+local_conf_header:
+  base: |
+    INIT_MANAGER = "systemd"
+    INHERIT += "rm_work"
+    IMAGE_CLASSES += "image_types_tegra"
+    IMAGE_FSTYPES = "tegraflash"
+    LICENSE_FLAGS_ACCEPTED += "commercial"
+    BB_NUMBER_THREADS = "8"
+    PARALLEL_MAKE = "-j 8"
+  dev-access: |
+    EXTRA_IMAGE_FEATURES += "ssh-server-openssh debug-tweaks"
+    IMAGE_INSTALL:append = " openssh-sftp-server avahi-daemon kernel-modules l4t-usb-device-mode"
+  cuda: |
+    L4T_DEB_FEED_BASE = "https://repo.download.nvidia.com/jetson"
+    IMAGE_INSTALL:append = " cuda-cudart libcublas cudnn tensorrt-core tensorrt-plugins-prebuilt tensorrt-trtexec-prebuilt"

@@ -2,6 +2,18 @@
 
 Newest first. Each entry says what was decided, why, and what was rejected.
 
+## 2026-11-02: CUDA stack comes from meta-tegra recipes, download route to be confirmed
+
+The pinned meta-tegra branch has recipes for the stack the Nano needs: CUDA 10.2 (`cuda-cudart`, `libcublas`, `cuda-nvrtc` and others), cuDNN 8.2.1.32 and TensorRT 8.2.1 (`tensorrt-core`, `tensorrt-plugins-prebuilt`, `tensorrt-trtexec-prebuilt`). How the files are fetched:
+
+- cuDNN and TensorRT use the `l4t_deb_pkgfeed` class, whose default feed is NVIDIA's public Jetson repository (`https://repo.download.nvidia.com/jetson`). No NVIDIA login is needed.
+- CUDA 10.2 recipes use the same class but default `L4T_DEB_FEED_BASE` to `file://`, so they expect the packages in a local folder laid out like NVIDIA's pool. Whether NVIDIA's public feed also serves them is checked with `curl` from the build host.
+- `NVIDIA_DEVNET_MIRROR` is defined by `nvidia_devnet_downloads.bbclass`, but no recipe on this branch inherits that class, so it is not needed here.
+- Runtime image set: `cuda-cudart`, `libcublas`, `cudnn`, `tensorrt-core`, `tensorrt-plugins-prebuilt` and `tensorrt-trtexec-prebuilt`. The `-dev`, samples and documentation packages stay out of the runtime image, which is where most of the stock image's size goes.
+- The TensorRT recipes require the `opengl` distro feature, which poky enables by default. This may pull in graphics libraries, so image size is checked after the build.
+
+Rejected for now: running NVIDIA SDK Manager, because it does not offer JetPack 4.x on an Ubuntu 22.04 host. It remains the fallback, in an Ubuntu 18.04 container, if the CUDA packages cannot be fetched.
+
 ## 2026-11-02: boot time and RAM are read from systemd and `/proc/meminfo`
 
 Our minimal image has no `systemd-analyze`, no `sudo`, no `dpkg` and a BusyBox userland. Boot time comes from `systemctl show` timestamps, and RAM from `/proc/meminfo`. The scripts use portable commands (`sed -n`, not `head -N`).

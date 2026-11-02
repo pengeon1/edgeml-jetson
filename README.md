@@ -16,6 +16,7 @@ An application-specific Linux distribution for **edge ML inference on the NVIDIA
 | 5-run benchmark and power on our image | Done (same speed and power as stock) |
 | Detector service with camera and MQTT | To do |
 | Kernel trimming (before and after numbers) | To do |
+| Clock fixed and LLMNR (port 5355) closed (`meta-edgeml`) | Done |
 | Read-only root, hardening, auto-start service | To do |
 | Final benchmarks, report, demo video | To do |
 
@@ -65,7 +66,7 @@ Same Nano, same SD card model, same engine file (YOLOv5n FP16, 640x640), MAXN wi
 | Boot, kernel start to boot finished | 15.5 s | 8.9 s | 43% faster |
 | RAM in use at idle | 670 MB | 217 MB | 68% less |
 | Running services | 39 | 14 | 64% fewer |
-| Listening sockets | 8 | 5 | 3 fewer |
+| Listening sockets | 8 | 3 (SSH, plus two DNS stubs bound to localhost) | 5 fewer; only SSH is reachable from outside |
 | Kernel image | 34.5 MB | 38.5 MB | 12% larger (untrimmed) |
 | Kernel modules | 78 MB | 85.2 MB | 9% larger (untrimmed) |
 | TensorRT throughput | 22.16 ± 0.021 inferences/s | 22.22 ± 0.037 inferences/s | same, within 0.3% |
@@ -80,6 +81,7 @@ Reading the table: the image is 88% smaller than stock (the assignment asks for 
 
 ```
 kas/             Build configurations (pinned layers, image settings)
+meta-edgeml/     Our own Yocto layer (system configuration, later the detector service)
 scripts/         Build, flash, measurement and summary scripts
 docs/            Build and flash guide, measurement method, decision log
 results/         Raw measurement logs (stock/ and ours/)
@@ -131,6 +133,12 @@ Flashing and first login are in [docs/build-and-flash.md](docs/build-and-flash.m
 
 ## Progress log
 
+### 2026-11-02 (clock and port 5355)
+- New layer `meta-edgeml` with the recipe `edgeml-config`: wired Ethernet with DHCP (so `systemd-timesyncd` gets network time) and a `systemd-resolved` drop-in with `LLMNR=no` and `MulticastDNS=no`. It is listed in `kas/edgeml-cuda.yml` (a `repos:` entry with no URL refers to this repository) and installed through `IMAGE_INSTALL`.
+- Cause of the wrong clock: Yocto sets file dates from the metadata commit date (December 2023) and the Nano has no battery clock, so without network time the board starts in 2023.
+- Tested by sharing the laptop's internet (phone hotspot) to the Nano over a USB Ethernet adapter (NetworkManager `ipv4.method shared`). Result: the Nano got 10.42.0.254 on `eth0`, the date was correct within a minute of login, and port 5355 is gone. The only external listener left is SSH (port 22).
+- The `fdtput: command not found` warning from the flash helper remains unexplained (`device-tree-compiler` is installed on the laptop). It does not stop the flash.
+
 ### 2026-11-02 (benchmark on the CUDA image)
 - The first CUDA image had no `nvpmodel`, `jetson_clocks`, `tegrastats` or `bash`, so the clocks could not be fixed and power could not be logged. Added `tegra-tools` and `tegra-nvpmodel` to `kas/edgeml-cuda.yml` (jetson_clocks pulls in bash), rebuilt and re-flashed.
 - Five-run benchmark with the stock engine: 22.22 ± 0.037 inferences/s, p99 45.14 ± 0.089 ms, 6.41 W while busy, 3.47 FPS/W, GPU at 921 MHz, peak 42.75 °C. Stock: 22.16 ± 0.021, 45.26 ± 0.023 ms, 6.41 W, 3.46 FPS/W. Parity.
@@ -143,7 +151,7 @@ Flashing and first login are in [docs/build-and-flash.md](docs/build-and-flash.m
 - The stock `yolov5n_fp16.engine` (TensorRT 8.2.1) loads and runs unchanged on our image: 22.127 inferences/s, mean latency 45.18 ms, GPU compute 43.88 ms (stock: 22.16, 45.12 ms, 43.83 ms). The 99th percentile of 68.8 ms comes from a single short run without fixed clocks; the 5-run benchmark will replace it.
 - Stock inference logs and summaries are now in `results/stock/`.
 - Fixes: `scripts/flash.sh` now removes the unpack folder with sudo (a previous sudo flash leaves root-owned files). On this image root's home is `/home/root`, so copy files with `scp FILE nano-usb:`. Libraries live in `/usr/lib`.
-- Known: the flash helper prints `fdtput: command not found` (install `device-tree-compiler` on the host).
+- Known: the flash helper prints `fdtput: command not found`; the flash still works.
 
 ### 2026-11-02 (later)
 - Read the pinned meta-tegra recipes for the CUDA stack. The branch has recipes for CUDA 10.2, cuDNN 8.2.1.32 and TensorRT 8.2.1, matching the Nano's JetPack 4.6.x. The `NVIDIA_DEVNET_MIRROR` mechanism exists in the layer but no recipe on this branch uses it.

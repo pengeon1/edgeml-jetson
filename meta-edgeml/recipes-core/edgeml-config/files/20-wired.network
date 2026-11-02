@@ -1,0 +1,9 @@
+# Wired Ethernet: get an address and NTP servers from the router.
+[Match]
+Name=eth* en*
+
+[Network]
+DHCP=yes
+
+[DHCPv4]
+UseNTP=yes

@@ -2,6 +2,16 @@
 
 Newest first. Each entry says what was decided, why, and what was rejected.
 
+## 2026-11-02: our own configuration lives in a project layer, `meta-edgeml`
+
+Settings that are not packages (network, resolver) go into a layer inside this repository instead of `local_conf`, so they are versioned and the build stays reproducible. kas includes it with a `repos:` entry that has no URL.
+
+- **Clock:** the Nano has no battery clock and Yocto dates files from the metadata commit (December 2023). `systemd-timesyncd` was already in the image but had no route to the internet, because the USB network (192.168.55.1) does not reach it. `edgeml-config` brings the wired port up with DHCP so the router (or the laptop sharing its internet) provides addresses and NTP servers. Without network time the board shows the 2023 date; the saved-time fix comes with the read-only root (a writable `/var/lib/systemd/timesync`).
+- **Port 5355:** LLMNR was listening on all interfaces. The image does not use LLMNR, so `LLMNR=no` in a `resolved.conf.d` drop-in closes it. `MulticastDNS=no` leaves mDNS to avahi, which provides `.local` names.
+- Result on the board: SSH is the only external listener (two DNS stubs listen on localhost only).
+
+Rejected: chrony or ntpd (adds a package where `systemd-timesyncd` is already present), and editing `/etc` in the running image by hand (not reproducible).
+
 ## 2026-11-02: CUDA stack comes from meta-tegra recipes and NVIDIA's public Jetson feed
 
 The pinned meta-tegra branch has recipes for the stack the Nano needs: CUDA 10.2 (`cuda-cudart`, `libcublas`, `cuda-nvrtc` and others), cuDNN 8.2.1.32 and TensorRT 8.2.1 (`tensorrt-core`, `tensorrt-plugins-prebuilt`, `tensorrt-trtexec-prebuilt`). How the files are fetched:

@@ -2,6 +2,25 @@
 
 Newest first. Each entry says what was decided, why, and what was rejected.
 
+## 2026-11-02: the detector is a C++ program with its own MQTT client, broker on the laptop
+
+- **Why C++ and not Python:** the image has no Python, and the TensorRT Python bindings for JetPack 4 target Python 3.6, which kirkstone does not have. The C++ API uses the same `libnvinfer` that `trtexec` uses, and the program adds only a few MB to the image.
+- **MQTT client:** about 100 lines (CONNECT, then QoS 0 PUBLISH, keep-alive off, reconnect every 3 s). It avoids adding libmosquitto and its dependencies, and a lost broker never blocks the inference loop (connect uses a 1 s timeout and retries at most every 3 s). It cannot subscribe, which the detector does not need.
+- **Broker:** Mosquitto runs on the laptop (`192.168.55.100` on the USB link, `10.42.0.1` with Ethernet sharing), so the image carries no broker. Anonymous access is enabled for the lab demo and is to be tightened in the hardening step.
+- **Camera:** YUYV 640x480, four memory-mapped buffers, always the newest frame (older ones are given back) so latency does not build up; `exposure_auto_priority=0` so dim light does not halve the frame rate.
+- **Builds without nvcc:** the program only needs the CUDA runtime headers and `libcudart`, so the recipe uses `cuda-cudart`, `cuda-nvcc-headers`, `tensorrt-core` directly and never inherits the `cuda` class (which would pull in the CUDA compiler and host gcc 8).
+- **Engine file:** built on the board with `trtexec` (about 11 minutes) and copied to `/var/lib/edgeml/`. It is not in the repository because it is tied to the board's GPU and TensorRT version. A build-from-ONNX helper comes with the final image.
+- **Known limit:** preprocessing (9.4 ms on the CPU) runs before inference instead of overlapping it, which costs about 4 fps. To do: double-buffer the input, or move the conversion to the GPU.
+
+## 2026-11-02: detector is a C++ program with its own minimal MQTT client; engine and broker stay outside the image
+
+- **C++, not Python:** the image has no Python, and the TensorRT Python bindings of JetPack 4 target Python 3.6, while Yocto kirkstone ships 3.10. A C++ program links directly to `libnvinfer` and `libcudart` and adds almost nothing to the image.
+- **Own MQTT client:** the program only needs CONNECT and QoS 0 PUBLISH (about 80 lines), so it avoids a library dependency. The program reconnects every 3 s without stalling the inference loop. Tested against a fake broker.
+- **Engine file outside the image:** the TensorRT engine is built on the device for its GPU and TensorRT version (about 11 minutes), so it is stored in `/var/lib/edgeml/` and not in the image. Later it will live on a writable `/data` partition when the root becomes read-only. The ONNX model comes from Ultralytics YOLOv5 (AGPL-3.0), which goes in the licence list.
+- **Broker on the laptop:** keeps the image small and makes the demo easy to show. Anonymous access is acceptable on the private USB link and will be tightened in the hardening step.
+- **Runs as root for now.** A dedicated user in the `video` group and systemd sandbox options come with the hardening step.
+- **Newest frame only:** the capture loop drops older queued frames, so latency does not grow when inference is slower than the camera.
+
 ## 2026-11-02: our own configuration lives in a project layer, `meta-edgeml`
 
 Settings that are not packages (network, resolver) go into a layer inside this repository instead of `local_conf`, so they are versioned and the build stays reproducible. kas includes it with a `repos:` entry that has no URL.

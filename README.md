@@ -14,8 +14,8 @@ An application-specific Linux distribution for **edge ML inference on the NVIDIA
 | Flash and first boot of our image, SSH over USB | Done |
 | CUDA, cuDNN and TensorRT in the image (`kas/edgeml-cuda.yml`) | Done |
 | 5-run benchmark and power on our image | Done (same speed and power as stock) |
-| Detector service with camera and MQTT | To do |
-| Kernel trimming (before and after numbers) | To do |
+| Detector service with camera and MQTT (`meta-edgeml`, `edgeml-detector`) | Done: starts at boot, detections reach the laptop broker |
+| Kernel trimming (before and after numbers) | Next |
 | Clock fixed and LLMNR (port 5355) closed (`meta-edgeml`) | Done |
 | Read-only root, hardening, auto-start service | To do |
 | Final benchmarks, report, demo video | To do |
@@ -77,6 +77,40 @@ Same Nano, same SD card model, same engine file (YOLOv5n FP16, 640x640), MAXN wi
 
 Reading the table: the image is 88% smaller than stock (the assignment asks for at least 40%) and inference speed and power are unchanged, so the savings cost nothing in performance. Run 1 of our benchmark was the fastest (22.28); without it the mean is 22.20, so claim parity, not a speedup. The kernel is not trimmed yet, so kernel size is the next place to gain. The RAM figure was taken 32 s after boot. Raw logs are in `results/stock/` and `results/cuda-image/`.
 
+### Detector service on our image (webcam to MQTT)
+
+Measured on the Nano with the service running at boot, a person in front of the Logitech C270 (640x480), engine `yolov5n_fp16.engine`, MQTT broker on the laptop.
+
+| Metric | Value |
+| --- | --- |
+| End-to-end rate | 18.1 frames/s |
+| Preprocessing (CPU, YUYV to RGB and letterbox) | 9.5 ms |
+| GPU inference | 45.0 ms |
+| Post-processing and MQTT publish | 0.7 ms |
+| Capture to publish latency | about 105 ms |
+| RAM in use with the service running | about 1.15 GB of 4 GB (217 MB idle) |
+| Power while the GPU is busy | 6.29 W (module input rail) |
+| Efficiency | 2.88 FPS/W |
+| Peak temperature | 50.5 °C, GPU held at 921 MHz |
+
+The rate is below the 22.2 inferences/s of the plain `trtexec` benchmark because preprocessing and inference run one after the other. Overlapping them is the planned optimisation.
+
+### Whole system with the detector running
+
+Camera, YOLOv5n FP16 engine, MQTT publish to the laptop; person in front of the camera; 108 one-second samples of `tegrastats` (all samples counted, because the detector keeps the GPU about 80% busy rather than above 90%).
+
+| Metric | Value |
+| --- | --- |
+| End-to-end rate | 18.1 frames/s (camera 30 fps; preprocessing and inference run one after the other) |
+| Time per frame | preprocessing 9.4 ms (CPU), inference 45.0 ms (GPU), post-processing and MQTT under 1 ms |
+| Capture to publish latency | about 105 ms |
+| Power, module input rail | 6.22 W, 2.91 frames/s per watt |
+| CPU load | about 12% per core on average (0.46 of one core in total) |
+| RAM in use | about 1.15 GB (MemTotal minus MemAvailable; CUDA, cuDNN and TensorRT libraries, engine, camera buffers) |
+| GPU clock, peak temperature | 921 MHz, 50.5 °C |
+
+Stock was not measured with the same workload, so only the idle figures (670 MB stock, 217 MB ours) are compared directly. The frame rate is below the 22 inferences/s of `trtexec` because the program does not overlap preprocessing with inference yet.
+
 ## Repository layout
 
 ```
@@ -101,7 +135,7 @@ Directories created by the build (`build/`, `poky/`, `meta-openembedded/`, `meta
 | `scripts/summarize-measure.sh` | Laptop | Prints headline numbers (boot, RAM, services, disk) from either measurement file |
 | `scripts/bench-trtexec.sh` | Nano | Fixes the clocks, logs power, runs `trtexec` several times |
 | `scripts/summarize-runs.sh` | Laptop or Nano | Mean ± standard deviation of throughput and latency over the runs |
-| `scripts/summarize-power.sh` | Laptop or Nano | Average power while the GPU is busy, GPU clocks, peak temperature, FPS per watt |
+| `scripts/summarize-power.sh` | Laptop or Nano | Average power while the GPU is busy (or all samples with a third argument of 0), GPU clocks, peak temperature, FPS per watt |
 
 ## Reproduce the build
 
@@ -132,6 +166,19 @@ Flashing and first login are in [docs/build-and-flash.md](docs/build-and-flash.m
 - Everything else comes from the Yocto Project and OpenEmbedded layers under their own open-source licences. The build produces a per-package licence manifest.
 
 ## Progress log
+
+### 2026-11-02 (detector service)
+- New recipe `edgeml-detector` in `meta-edgeml`: a C++ program (V4L2 capture, TensorRT inference, a small built-in MQTT client) and `edgeml-detector.service`, enabled at boot. Settings are in `/etc/edgeml/detector.conf`; the engine file lives in `/var/lib/edgeml/`. Broker: Mosquitto on the laptop, reached over the USB network (192.168.55.100).
+- Tested on the board: detections of `person` arrive on `edgeml/detections` as JSON. The service starts by itself after a reboot and connects to the broker. Numbers are in the table above.
+- Seen: without the engine file the service stops after five failed starts (by design, `StartLimitBurst`); copy the engine, then `systemctl reset-failed edgeml-detector && systemctl restart edgeml-detector`. A manual run while the service holds the camera fails with `Device or resource busy`.
+- Next: kernel trimming, then read-only root and hardening, then the report.
+
+### 2026-11-02 (detector service)
+- New recipe `edgeml-detector` in `meta-edgeml`: a C++ program that reads the webcam through V4L2 (YUYV 640x480), letterboxes each frame to 640x640 on the CPU, runs the YOLOv5n FP16 TensorRT engine, decodes and filters the boxes (confidence 0.35, NMS 0.45) and publishes JSON over MQTT to `edgeml/detections`. It has its own small MQTT 3.1.1 publisher, so no extra library is in the image. A systemd unit starts it at boot; settings are in `/etc/edgeml/detector.conf`; the engine file lives in `/var/lib/edgeml/`.
+- Tested on the board: detections of a person reached `mosquitto_sub` on the laptop (36 to 49% confidence), about 5,500 frames in one run. After a reboot the service started by itself and connected to the broker.
+- Numbers are in the table "Whole system with the detector running". Power is 6.22 W at 18.1 frames/s.
+- Found: the service fails five times if the engine file is not there at first boot and then stops (start limit). After copying the engine run `systemctl reset-failed edgeml-detector && systemctl restart edgeml-detector`. A manual run while the service is active fails with "Device or resource busy" because the camera is exclusive.
+- Found: BusyBox has no `pkill`, so `bench-trtexec.sh` left `tegrastats` running; it now stops it by PID. The earlier benchmark numbers are not affected (idle samples are filtered out). `summarize-power.sh` got a third argument, the minimum GPU load (0 counts every sample).
 
 ### 2026-11-02 (clock and port 5355)
 - New layer `meta-edgeml` with the recipe `edgeml-config`: wired Ethernet with DHCP (so `systemd-timesyncd` gets network time) and a `systemd-resolved` drop-in with `LLMNR=no` and `MulticastDNS=no`. It is listed in `kas/edgeml-cuda.yml` (a `repos:` entry with no URL refers to this repository) and installed through `IMAGE_INSTALL`.

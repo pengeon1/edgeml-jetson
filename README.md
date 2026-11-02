@@ -12,8 +12,8 @@ An application-specific Linux distribution for **edge ML inference on the NVIDIA
 | Stock JetPack baseline (size, boot, RAM, power, inference) | Done |
 | Yocto build for the Nano (no CUDA) | Done |
 | Flash and first boot of our image, SSH over USB | Done |
-| CUDA, cuDNN and TensorRT in the image (`kas/edgeml-cuda.yml`) | Built, flashed, stock YOLOv5n engine runs (22.13 vs 22.16 inferences/s) |
-| 5-run benchmark and power on our image | Next (needs nvpmodel, jetson_clocks and tegrastats in the image) |
+| CUDA, cuDNN and TensorRT in the image (`kas/edgeml-cuda.yml`) | Done |
+| 5-run benchmark and power on our image | Done (same speed and power as stock) |
 | Detector service with camera and MQTT | To do |
 | Kernel trimming (before and after numbers) | To do |
 | Read-only root, hardening, auto-start service | To do |
@@ -55,19 +55,26 @@ Layers are pinned by commit in `kas/edgeml-bsp.yml` and `kas/edgeml-dev.yml`:
 | Power during inference | 6.41 W (module input rail), 3.46 FPS per watt |
 | GPU clock and temperature | Held at 921 MHz, peak 43.75 °C, no throttling |
 
-### Our image versus stock (provisional: first CUDA image, one 100-iteration run)
+### Our CUDA image versus stock JetPack 4.6.1
 
-| Metric | Stock | Our image v0 | Change |
+Same Nano, same SD card model, same engine file (YOLOv5n FP16, 640x640), MAXN with `jetson_clocks`, 5 runs of 30 s, mean ± sample SD. Power is the module input rail averaged while GPU load is at least 90%.
+
+| Metric | Stock | Our image | Change |
 | --- | --- | --- | --- |
+| Used root filesystem | 12 GB | 1.4 GB (with CUDA 10.2, cuDNN 8.2.1, TensorRT 8.2.1 runtime) | 88% less |
 | Boot, kernel start to boot finished | 15.5 s | 8.9 s | 43% faster |
-| RAM in use at idle | 670 MB | 205 MB | 69% less |
-| Used root filesystem | 12 GB | 1.4 GB with CUDA 10.2 runtime, cuDNN 8.2.1, TensorRT 8.2.1 (177.5 MB without) | about 88% less |
-| TensorRT throughput, same engine file | 22.16 ± 0.021 inferences/s | 22.13 (one run) | same, within 0.2% |
-| Kernel image | 34.5 MB | 38.5 MB | 12% larger (untrimmed) |
-| Kernel modules | 78 MB | 85 MB | 9% larger |
+| RAM in use at idle | 670 MB | 217 MB | 68% less |
 | Running services | 39 | 14 | 64% fewer |
+| Listening sockets | 8 | 5 | 3 fewer |
+| Kernel image | 34.5 MB | 38.5 MB | 12% larger (untrimmed) |
+| Kernel modules | 78 MB | 85.2 MB | 9% larger (untrimmed) |
+| TensorRT throughput | 22.16 ± 0.021 inferences/s | 22.22 ± 0.037 inferences/s | same, within 0.3% |
+| Latency, 99th percentile | 45.26 ± 0.023 ms | 45.14 ± 0.089 ms | same |
+| Power while busy | 6.41 W | 6.41 W | same |
+| Efficiency | 3.46 FPS/W | 3.47 FPS/W | same |
+| Peak temperature | 43.75 °C | 42.75 °C | 1 °C lower |
 
-Boot, RAM, services and kernel rows were measured on the first image without CUDA and will be re-measured on the CUDA image. The throughput row is a single 100-iteration run, so there is no spread yet. The 5-run benchmark follows. Raw logs are in `results/`.
+Reading the table: the image is 88% smaller than stock (the assignment asks for at least 40%) and inference speed and power are unchanged, so the savings cost nothing in performance. Run 1 of our benchmark was the fastest (22.28); without it the mean is 22.20, so claim parity, not a speedup. The kernel is not trimmed yet, so kernel size is the next place to gain. The RAM figure was taken 32 s after boot. Raw logs are in `results/stock/` and `results/cuda-image/`.
 
 ## Repository layout
 
@@ -123,6 +130,12 @@ Flashing and first login are in [docs/build-and-flash.md](docs/build-and-flash.m
 - Everything else comes from the Yocto Project and OpenEmbedded layers under their own open-source licences. The build produces a per-package licence manifest.
 
 ## Progress log
+
+### 2026-11-02 (benchmark on the CUDA image)
+- The first CUDA image had no `nvpmodel`, `jetson_clocks`, `tegrastats` or `bash`, so the clocks could not be fixed and power could not be logged. Added `tegra-tools` and `tegra-nvpmodel` to `kas/edgeml-cuda.yml` (jetson_clocks pulls in bash), rebuilt and re-flashed.
+- Five-run benchmark with the stock engine: 22.22 ± 0.037 inferences/s, p99 45.14 ± 0.089 ms, 6.41 W while busy, 3.47 FPS/W, GPU at 921 MHz, peak 42.75 °C. Stock: 22.16 ± 0.021, 45.26 ± 0.023 ms, 6.41 W, 3.46 FPS/W. Parity.
+- Re-measured on this image: boot 8.9 s, RAM 217 MB, 14 services, 5 listening sockets, 1.4 GB used root filesystem. Logs in `results/cuda-image/`.
+- Next: trim the kernel, add the detector service (camera and MQTT), read-only root and hardening, clock fix, close port 5355.
 
 ### 2026-11-02 (CUDA image)
 - Added `kas/edgeml-cuda.yml` (dev image plus `L4T_DEB_FEED_BASE` and the runtime packages cuda-cudart, libcublas, cudnn, tensorrt-core, tensorrt-plugins-prebuilt, tensorrt-trtexec-prebuilt). The build downloaded everything from NVIDIA's public feed without a login. The manifest lists 781 packages including `tegra-libraries-cuda`.

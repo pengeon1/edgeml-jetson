@@ -1,0 +1,8 @@
+== Remount / as ro
+/dev/mmcblk0p1 on / type ext4 (ro,relatime,data=ordered)
+
+== Test write to /usr (must fail)
+touch: /usr/test-ro: Read-only file system
+
+== Remount / as rw for ongoing config
+/dev/mmcblk0p1 on / type ext4 (rw,relatime,data=ordered)

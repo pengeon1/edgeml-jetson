@@ -1,0 +1,11 @@
+== sshd -T
+permitrootlogin without-password
+passwordauthentication no
+permitemptypasswords no
+
+== Password login attempt (must be denied)
+Warning: Permanently added '192.168.55.1' (ED25519) to the list of known hosts.
+root@192.168.55.1: Permission denied (publickey).
+
+== Key login attempt (must succeed)
+Key login OK

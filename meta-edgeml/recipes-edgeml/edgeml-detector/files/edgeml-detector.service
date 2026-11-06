@@ -6,10 +6,49 @@ StartLimitIntervalSec=60
 StartLimitBurst=5
 
 [Service]
+User=edgeml
+Group=video
+SupplementaryGroups=video
 EnvironmentFile=-/etc/edgeml/detector.conf
 ExecStart=/usr/bin/edgeml-detector
 Restart=on-failure
 RestartSec=3
+
+# Sandboxing & Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectClock=true
+ProtectHostname=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+RemoveIPC=true
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET
+UMask=0027
+
+# Device access: allow camera, nvmap, nvhost, and GPU
+DevicePolicy=closed
+DeviceAllow=/dev/video0 rw
+DeviceAllow=/dev/nvmap rw
+DeviceAllow=char-nvhost rw
+DeviceAllow=char-57000000.gpu rw
+
+# Filesystem access
+ReadOnlyPaths=/usr /etc
+ReadWritePaths=/var/lib/edgeml /tmp
+
+# Capabilities: unprivileged, drop all capabilities
+CapabilityBoundingSet=
+AmbientCapabilities=
 
 [Install]
 WantedBy=multi-user.target

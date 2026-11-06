@@ -1,0 +1,4 @@
+# Grant video group read/write access to Tegra GPU and memory devices
+KERNEL=="nvhost*", MODE="0660", GROUP="video"
+KERNEL=="nvmap", MODE="0660", GROUP="video"
+

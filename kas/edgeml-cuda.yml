@@ -35,9 +35,10 @@ local_conf_header:
     LICENSE_FLAGS_ACCEPTED += "commercial"
     BB_NUMBER_THREADS = "8"
     PARALLEL_MAKE = "-j 8"
+    IMAGE_FEATURES += "read-only-rootfs"
   dev-access: |
-    EXTRA_IMAGE_FEATURES += "ssh-server-openssh debug-tweaks"
-    IMAGE_INSTALL:append = " openssh-sftp-server avahi-daemon kernel-modules l4t-usb-device-mode"
+    EXTRA_IMAGE_FEATURES += "ssh-server-openssh"
+    IMAGE_INSTALL:append = " openssh-sftp-server avahi-daemon kernel-modules l4t-usb-device-mode systemd-analyze"
   cuda: |
     L4T_DEB_FEED_BASE = "https://repo.download.nvidia.com/jetson"
     IMAGE_INSTALL:append = " cuda-cudart libcublas cudnn tensorrt-core tensorrt-plugins-prebuilt tensorrt-trtexec-prebuilt tegra-tools tegra-nvpmodel edgeml-config edgeml-detector"

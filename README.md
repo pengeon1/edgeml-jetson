@@ -4,7 +4,7 @@ An application-specific Linux distribution for **edge ML inference on the NVIDIA
 
 **Goal:** a headless, reproducible, read-only Linux image that boots straight into a camera → TensorRT object detector → MQTT service, with a measured comparison against stock JetPack on image size, RAM, boot time, package count, security exposure and inference performance.
 
-## Status (updated 2 November 2026)
+## Status (updated 6 November 2026)
 
 | Milestone | State |
 | --- | --- |
@@ -18,8 +18,8 @@ An application-specific Linux distribution for **edge ML inference on the NVIDIA
 | Boot console fix (`quiet loglevel=3`) | Done: boot 8.9 s to 4.6 s |
 | Kernel trimming (before and after numbers) | Done: 28.5 MB Image (-26%), 52.1 MB modules (-39%), 1,763 options (-625) |
 | Clock fixed and LLMNR (port 5355) closed (`meta-edgeml`) | Done |
-| Read-only root, hardening, auto-start service | To do |
-| Final benchmarks, report, demo video | To do |
+| Read-only root, hardening, auto-start service | Done (service sandboxing: 9.6 -> 3.2 exposure, SSH key-only, sysctl, ro-rootfs) |
+| Final benchmarks, report, demo video | In progress |
 
 ## Hardware and host
 
@@ -167,6 +167,14 @@ Flashing and first login are in [docs/build-and-flash.md](docs/build-and-flash.m
 - Everything else comes from the Yocto Project and OpenEmbedded layers under their own open-source licences. The build produces a per-package licence manifest.
 
 ## Progress log
+
+### 2026-11-06 (Step 7: Service sandboxing, SSH hardening, sysctl, read-only rootfs)
+- **Service sandboxing:** `edgeml-detector.service` runs as dedicated system user `edgeml:video` (UID 1200) with strict sandboxing: `NoNewPrivileges=true`, `ProtectSystem=strict`, `ProtectHome=true`, `PrivateTmp=true`, `ProtectKernelTunables=true`, `ProtectKernelModules=true`, `ProtectControlGroups=true`, `RestrictRealtime=true`, `RestrictSUIDSGID=true`, `RestrictAddressFamilies=AF_UNIX AF_INET`, and `DevicePolicy=closed`.
+- **NVIDIA GPU access under sandboxing:** Identified that Jetson Nano's Maxwell GPU character device node is Major 506 (`char-57000000.gpu`), while `char-nvhost` only matches Major 242. Added `DeviceAllow=char-57000000.gpu rw` to avoid CUDA runtime "no CUDA-capable device is detected" error. Installed udev rule `99-tegra-devices.rules` (`KERNEL=="nvhost*|nvmap", MODE="0660", GROUP="video"`) to grant device access to the `video` group.
+- **Exposure score reduction:** Deployed `systemd-analyze` to measure unit exposure score. Rating dropped from **9.6 UNSAFE 😨** to **3.2 OK 🙂** (67% reduction) while maintaining full 18.2 FPS inference and MQTT publishing.
+- **SSH hardening:** Enforced `PermitRootLogin prohibit-password`, `PasswordAuthentication no`, and `PermitEmptyPasswords no` via an OpenSSH bbappend. Installed host public key to `/home/root/.ssh/authorized_keys`. Verified on live board: public key login succeeds, password authentication rejected with `Permission denied (publickey)`.
+- **Sysctl kernel hardening:** Installed `/etc/sysctl.d/99-edgeml-security.conf` with `kptr_restrict=2`, `dmesg_restrict=1`, anti-spoofing reverse path filtering, and disabled ICMP redirects.
+- **Read-only rootfs:** Configured `IMAGE_FEATURES += "read-only-rootfs"` in `kas/edgeml-cuda.yml`. Verified on live hardware: root partition mounted `ro`, writes to system directories blocked, volatile state directed to tmpfs `/var/volatile`, and detector service runs smoothly. Raw evidence saved in `results/ours/security/`.
 
 ### 2026-11-06 (kernel trim built and verified)
 - Second build failure during module post-processing (`do_compile_kernelmodules` / `modpost`): `hid-jarvis-remote.ko` failed with 9 undefined ALSA symbols (`snd_pcm_*`, `snd_card_*`). Cause: NVIDIA's vendor Kconfig for SHIELD accessories (`CONFIG_HID_SHIELD_REMOTE`) failed to declare `depends on SND`, so turning off `CONFIG_SOUND` did not disable the module. Fix: explicitly set `# CONFIG_HID_SHIELD_REMOTE is not set`, `# CONFIG_HID_SHIELD_BLAKE is not set`, `# CONFIG_HID_NVIDIA_STAND is not set` in `meta-edgeml/recipes-kernel/linux/files/edgeml-trim.cfg`.

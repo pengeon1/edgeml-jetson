@@ -41,3 +41,5 @@ local_conf_header:
   cuda: |
     L4T_DEB_FEED_BASE = "https://repo.download.nvidia.com/jetson"
     IMAGE_INSTALL:append = " cuda-cudart libcublas cudnn tensorrt-core tensorrt-plugins-prebuilt tensorrt-trtexec-prebuilt tegra-tools tegra-nvpmodel edgeml-config edgeml-detector"
+  boot: |
+    UBOOT_EXTLINUX_KERNEL_ARGS = "${bootargs} quiet loglevel=3"

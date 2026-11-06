@@ -15,7 +15,8 @@ An application-specific Linux distribution for **edge ML inference on the NVIDIA
 | CUDA, cuDNN and TensorRT in the image (`kas/edgeml-cuda.yml`) | Done |
 | 5-run benchmark and power on our image | Done (same speed and power as stock) |
 | Detector service with camera and MQTT (`meta-edgeml`, `edgeml-detector`) | Done: starts at boot, detections reach the laptop broker |
-| Kernel trimming (before and after numbers) | Next |
+| Boot console fix (`quiet loglevel=3`) | Done: boot 8.9 s to 4.6 s |
+| Kernel trimming (before and after numbers) | Done: 28.5 MB Image (-26%), 52.1 MB modules (-39%), 1,763 options (-625) |
 | Clock fixed and LLMNR (port 5355) closed (`meta-edgeml`) | Done |
 | Read-only root, hardening, auto-start service | To do |
 | Final benchmarks, report, demo video | To do |
@@ -63,19 +64,19 @@ Same Nano, same SD card model, same engine file (YOLOv5n FP16, 640x640), MAXN wi
 | Metric | Stock | Our image | Change |
 | --- | --- | --- | --- |
 | Used root filesystem | 12 GB | 1.4 GB (with CUDA 10.2, cuDNN 8.2.1, TensorRT 8.2.1 runtime) | 88% less |
-| Boot, kernel start to boot finished | 15.5 s | 8.9 s | 43% faster |
+| Boot, kernel start to boot finished | 15.5 s | 4.6 s (8.9 s before `quiet loglevel=3`) | 70% faster |
 | RAM in use at idle | 670 MB | 217 MB | 68% less |
 | Running services | 39 | 14 | 64% fewer |
 | Listening sockets | 8 | 3 (SSH, plus two DNS stubs bound to localhost) | 5 fewer; only SSH is reachable from outside |
-| Kernel image | 34.5 MB | 38.5 MB | 12% larger (untrimmed) |
-| Kernel modules | 78 MB | 85.2 MB | 9% larger (untrimmed) |
+| Kernel image | 34.5 MB | 28.5 MB (38.5 MB before trim) | 17% smaller than stock, 26% smaller than untrimmed |
+| Kernel modules | 78 MB | 52.1 MB (85.2 MB before trim) | 33% smaller than stock, 39% smaller than untrimmed |
 | TensorRT throughput | 22.16 ± 0.021 inferences/s | 22.22 ± 0.037 inferences/s | same, within 0.3% |
 | Latency, 99th percentile | 45.26 ± 0.023 ms | 45.14 ± 0.089 ms | same |
 | Power while busy | 6.41 W | 6.41 W | same |
 | Efficiency | 3.46 FPS/W | 3.47 FPS/W | same |
 | Peak temperature | 43.75 °C | 42.75 °C | 1 °C lower |
 
-Reading the table: the image is 88% smaller than stock (the assignment asks for at least 40%) and inference speed and power are unchanged, so the savings cost nothing in performance. Run 1 of our benchmark was the fastest (22.28); without it the mean is 22.20, so claim parity, not a speedup. The kernel is not trimmed yet, so kernel size is the next place to gain. The RAM figure was taken 32 s after boot. Raw logs are in `results/stock/` and `results/cuda-image/`.
+Reading the table: the image is 88% smaller than stock (the assignment asks for at least 40%) and inference speed and power are unchanged, so the savings cost nothing in performance. Run 1 of our benchmark was the fastest (22.28); without it the mean is 22.20, so claim parity, not a speedup. The trimmed kernel saves 10 MB on the Image and 33 MB on modules (total footprint 80.6 MB vs 123.7 MB untrimmed). The RAM figure was taken 32 s after boot. Raw logs are in `results/stock/`, `results/cuda-image/` and `results/kernel/`.
 
 ### Detector service on our image (webcam to MQTT)
 
@@ -166,6 +167,29 @@ Flashing and first login are in [docs/build-and-flash.md](docs/build-and-flash.m
 - Everything else comes from the Yocto Project and OpenEmbedded layers under their own open-source licences. The build produces a per-package licence manifest.
 
 ## Progress log
+
+### 2026-11-06 (kernel trim built and verified)
+- Second build failure during module post-processing (`do_compile_kernelmodules` / `modpost`): `hid-jarvis-remote.ko` failed with 9 undefined ALSA symbols (`snd_pcm_*`, `snd_card_*`). Cause: NVIDIA's vendor Kconfig for SHIELD accessories (`CONFIG_HID_SHIELD_REMOTE`) failed to declare `depends on SND`, so turning off `CONFIG_SOUND` did not disable the module. Fix: explicitly set `# CONFIG_HID_SHIELD_REMOTE is not set`, `# CONFIG_HID_SHIELD_BLAKE is not set`, `# CONFIG_HID_NVIDIA_STAND is not set` in `meta-edgeml/recipes-kernel/linux/files/edgeml-trim.cfg`.
+- Build succeeded completely (all 4,685 tasks succeeded; flashing package `core-image-minimal-jetson-nano-devkit-20261106064652.tegraflash.tar.gz` generated).
+- Measured reductions from `config-before.txt` to `config-after.txt`:
+  - Built-in options (`=y`): 1,723 down to 1,397 (-326 options, -19%)
+  - Module options (`=m`): 665 down to 366 (-299 options, -45%)
+  - Total kernel options enabled: 2,388 down to 1,763 (-625 options removed)
+  - Kernel `Image` size: 38.5 MB down to 28.5 MB (-26% vs untrimmed, -17% vs stock 34.5 MB)
+  - Kernel modules size: 85.2 MB down to 52.1 MB (-39% vs untrimmed, -33% vs stock 78 MB)
+  - Total kernel footprint: 123.7 MB down to 80.6 MB (-43.1 MB, -35% reduction)
+  - Config diff saved in `results/kernel/config.diff`.
+
+### 2026-11-06 (kernel trim, first build failed, fixed)
+- First build of the trim failed in `nvidia/drivers/cpufreq/tegra194_cpufreq.c` (`read_ndiv_request undeclared`): that function exists only when `CONFIG_DEBUG_FS` is on. The default configuration never asked for `DEBUG_FS`; it was switched on indirectly because `DEBUG_KMEMLEAK` selects it, and the trim switched `DEBUG_KMEMLEAK` off.
+- Instead of fixing one symbol per 30-minute build, ran the kernel's own configuration tool (`make alldefconfig` on the real `tegra_defconfig` with the NVIDIA overlays; it reproduces the board's configuration to within 6 symbols) with and without the trim, and compared. This found more indirect losses: `ATA` off would have switched off SCSI and so USB storage; `CAN` off removed `STAGING` and with it the INA3221 power-sensor driver that `tegrastats` reads; removing built-in drivers turned the USB core, the xHCI controller, USB storage and some crypto and HID options from built-in into modules.
+- Fix: keep `ATA`, `CAN`, `FTRACE` and `DEBUG_KMEMLEAK`; pin `CONFIG_DEBUG_FS=y`; pin 47 options that would otherwise have moved from built-in to modules. The revised trim turns 1,721 built-in options into 1,395 and 665 modules into 368 (expected from the tool; the real numbers come from `config-after.txt`).
+
+### 2026-11-06 (boot time and kernel trim, part 1)
+- Found where the boot time goes: the kernel hands over to systemd at 6.1 s (stock: 2.3 s) because about 65 KB of kernel log is written to a serial console at 115,200 baud (about 11 KB/s). Adding `quiet loglevel=3` to the kernel command line moved systemd's start to 1.9 s and "boot finished" from 8.9 s to **4.6 s** (stock: 15.5 s). Tested by editing `/boot/extlinux/extlinux.conf` on the board; the build now sets it with `UBOOT_EXTLINUX_KERNEL_ARGS` in `kas/edgeml-cuda.yml`. The log is still kept in the kernel buffer (`dmesg`), only the console output is silenced.
+- Saved the running kernel configuration and boot log to `results/kernel/` (6,503 lines, 1,723 options built in, 665 as modules). The default configuration still has debugging on (`DEBUG_VM`, `DEBUG_KMEMLEAK`, `FTRACE`, `DEBUG_INFO`), plus drivers for hardware the demo does not have (Bluetooth, sound, CSI camera sensors, many Ethernet and Wi-Fi vendors, USB serial adapters, NFS, btrfs).
+- Wrote the first trim (revised on 2026-11-06 after its first build failed, see below), `meta-edgeml/recipes-kernel/linux/files/edgeml-trim.cfg` (about 155 options switched off, 47 pinned), attached to `linux-tegra` by a bbappend. Kept on purpose: Wi-Fi for the Intel 8265 card (PCI `8086:24fd`), the Realtek Ethernet, the USB network gadget, uvcvideo, overlayfs, debugfs (tegrastats), netfilter.
+- Found: the board has an Intel 8265 Wi-Fi and Bluetooth card in its M.2 slot. The image has no firmware or wpa_supplicant for it yet, so no `wlan0`; adding them would allow a phone hotspot instead of the laptop's shared Ethernet.
 
 ### 2026-11-02 (detector service)
 - New recipe `edgeml-detector` in `meta-edgeml`: a C++ program (V4L2 capture, TensorRT inference, a small built-in MQTT client) and `edgeml-detector.service`, enabled at boot. Settings are in `/etc/edgeml/detector.conf`; the engine file lives in `/var/lib/edgeml/`. Broker: Mosquitto on the laptop, reached over the USB network (192.168.55.100).

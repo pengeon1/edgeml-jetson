@@ -1,0 +1,113 @@
+== date
+Sun Dec 24 16:04:55 UTC 2023
+== release
+ID=poky
+NAME="Poky (Yocto Project Reference Distro)"
+VERSION="4.0.35 (kirkstone)"
+VERSION_ID=4.0.35
+PRETTY_NAME="Poky (Yocto Project Reference Distro) 4.0.35 (kirkstone)"
+DISTRO_CODENAME="kirkstone"
+cat: can't open '/etc/nv_tegra_release': No such file or directory
+== kernel
+Linux jetson-nano-devkit 4.9.337-l4t-r32.7.6+gd4116ecb5c13 #1 SMP PREEMPT Thu Nov 28 15:26:00 UTC 2024 aarch64 GNU/Linux
+== boot timing (microseconds since kernel start)
+KernelTimestampMonotonic=0
+UserspaceTimestampMonotonic=1872827
+FinishTimestampMonotonic=5194371
+== uptime
+70.54 238.86
+== failed units
+  UNIT LOAD ACTIVE SUB DESCRIPTION
+0 loaded units listed.
+== RAM
+MemTotal:        4061788 kB
+MemFree:         2751876 kB
+MemAvailable:    2893928 kB
+Cached:           268364 kB
+NvMapMemFree:          0 kB
+== disk
+Filesystem                Size      Used Available Use% Mounted on
+/dev/mmcblk0p1           13.0G      1.5G     10.8G  12% /
+== running services
+15
+== running service names
+avahi-daemon.service
+busybox-klogd.service
+busybox-syslog.service
+dbus.service
+edgeml-detector.service
+getty@tty1.service
+serial-getty@ttyGS0.service
+serial-getty@ttyS0.service
+sshd@5-192.168.55.1:22-192.168.55.100:46346.service
+systemd-journald.service
+systemd-logind.service
+systemd-networkd.service
+systemd-resolved.service
+systemd-timesyncd.service
+systemd-udevd.service
+== listening ports
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       
+tcp        0      0 127.0.0.54:53           0.0.0.0:*               LISTEN      
+tcp        0      0 127.0.0.53:53           0.0.0.0:*               LISTEN      
+tcp        0      0 :::22                   :::*                    LISTEN      
+== /boot
+lrwxrwxrwx    1 root     root            13 Dec 24 16:03 Image -> Image.trimmed
+-rw-r--r--    1 root     root      38496264 Mar  9  2018 Image-4.9.337-l4t-r32.7.6+gd4116ecb5c13
+-rw-r--r--    1 root     root      29927432 Dec 24 16:03 Image.trimmed
+-rw-r--r--    1 root     root      38496264 Dec 24 16:03 Image.untrimmed
+drwxr-xr-x    2 root     root          4096 Dec 24 16:03 extlinux
+-rw-r--r--    1 root     root       2321421 Mar  9  2018 initrd
+== kernel modules
+4.9.337-l4t-r32.7.6+gd4116ecb5c13
+4.9.337-untrimmed
+53.6M	/lib/modules/4.9.337-l4t-r32.7.6+gd4116ecb5c13
+87.4M	/lib/modules/4.9.337-untrimmed
+== loaded modules
+Module                  Size  Used by
+uvcvideo              108163  1
+userspace_alert         6404  0
+iwlwifi               158369  0
+cfg80211              609474  1 iwlwifi
+nvgpu                1833762  16
+fuse                  119355  1
+== GPU device nodes
+/dev/nvhost-as-gpu
+/dev/nvhost-ctrl
+/dev/nvhost-ctrl-gpu
+/dev/nvhost-ctrl-isp
+/dev/nvhost-ctrl-isp.1
+/dev/nvhost-ctrl-nvdec
+/dev/nvhost-ctrl-vi
+/dev/nvhost-ctxsw-gpu
+/dev/nvhost-dbg-gpu
+/dev/nvhost-gpu
+/dev/nvhost-isp
+/dev/nvhost-isp.1
+== processes
+  PID USER       VSZ STAT COMMAND
+    1 root     20208 S    {systemd} /sbin/init
+    2 root         0 SW   [kthreadd]
+    3 root         0 SW   [kworker/0:0]
+    4 root         0 SW<  [kworker/0:0H]
+    5 root         0 SW   [kworker/u8:0]
+    6 root         0 SW   [ksoftirqd/0]
+    7 root         0 SW   [rcu_preempt]
+    8 root         0 SW   [rcu_sched]
+    9 root         0 SW   [rcu_bh]
+   10 root         0 SW   [migration/0]
+   11 root         0 SW<  [lru-add-drain]
+   12 root         0 SW   [watchdog/0]
+   13 root         0 SW   [cpuhp/0]
+   14 root         0 SW   [cpuhp/1]
+   15 root         0 SW   [watchdog/1]
+   16 root         0 SW   [migration/1]
+   17 root         0 SW   [ksoftirqd/1]
+   18 root         0 SW   [kworker/1:0]
+   19 root         0 SW<  [kworker/1:0H]
+   20 root         0 SW   [cpuhp/2]
+   21 root         0 SW   [watchdog/2]
+   22 root         0 SW   [migration/2]
+   23 root         0 SW   [ksoftirqd/2]
+   24 root         0 SW   [kworker/2:0]

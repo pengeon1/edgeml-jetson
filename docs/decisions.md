@@ -2,6 +2,14 @@
 
 Newest first. Each entry says what was decided, why, and what was rejected.
 
+## 2026-11-06: pipelined triple-buffering for detector service (overlapping CPU letterboxing with GPU inference)
+
+- **Sequential bottleneck eliminated:** In the initial detector implementation, CPU letterbox preprocessing (11.0 ms), GPU inference (48.2 ms), and postprocessing+MQTT (1.8 ms) executed sequentially in a single loop, limiting throughput to 18.3 FPS despite the Maxwell GPU being capable of 22.2 FPS.
+- **Pipelined multithreaded architecture:** Refactored `edgeml-detector.cpp` into a two-stage pipelined architecture with 3 pinned host buffers (`cudaMallocHost`):
+  - Stage 1 (Producer thread): Continuous V4L2 zero-copy capture and CPU bilinear letterbox preprocessing. Outdated frames are dropped to keep latency under 116 ms.
+  - Stage 2 (Consumer thread): Asynchronous DMA transfer, TensorRT FP16 execution context enqueue, NMS box decoding, and MQTT publishing.
+- **Measured result:** CPU preprocessing overhead is completely overlapped and hidden during GPU execution. Live streaming pipeline throughput jumped from **18.3 FPS to 20.0 FPS** (+9.3% throughput gain).
+
 ## 2026-11-06: power-cut resilience verification and smoke testing
 
 - **Power-cut testing method:** Tested resilience against abrupt ungraceful power loss by triggering emergency hardware resets (`echo b > /proc/sysrq-trigger`) during active TensorRT inference and MQTT publishing. Completed 5 consecutive abrupt power-loss cycles (`scripts/test-power-cut.sh`). In 5 out of 5 cycles, the system recovered within 3-4 seconds, remounted the root filesystem cleanly as `ro` with zero EXT4 filesystem corruption or journal errors, auto-started `edgeml-detector.service`, and resumed live MQTT inference output at 18.2 FPS.

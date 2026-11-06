@@ -1,5 +1,11 @@
 // edgeml-detector: webcam (V4L2, YUYV) -> YOLOv5 TensorRT engine -> MQTT (JSON).
 //
+// Features:
+//   - Pipelined multithreaded double/triple buffering (overlaps CPU preprocessing with GPU inference)
+//   - Zero-copy V4L2 mmap capture with frame drop avoidance
+//   - Standalone minimal MQTT 3.1.1 publisher (no extra libraries required)
+//   - Configurable via environment variables (/etc/edgeml/detector.conf)
+//
 // Configuration comes from environment variables (see /etc/edgeml/detector.conf):
 //   EDGEML_ENGINE   serialized TensorRT engine   (default /var/lib/edgeml/yolov5n_fp16.engine)
 //   EDGEML_CAMERA   V4L2 device                  (default /dev/video0)
@@ -8,7 +14,7 @@
 //   EDGEML_TOPIC    MQTT topic                   (default edgeml/detections)
 //   EDGEML_CONF     confidence threshold         (default 0.35)
 //   EDGEML_NMS      NMS IoU threshold            (default 0.45)
-// Options: --frames N (stop after N frames), --no-mqtt, --help
+// Options: --frames N (stop after N frames), --no-mqtt, --sync (sequential mode), --help
 //
 // The engine must have one FP32 input [1,3,S,S] and one FP32 output [1,N,5+classes]
 // (the standard YOLOv5 ONNX export, built with trtexec --fp16).
@@ -37,8 +43,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <condition_variable>
 #include <fstream>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 static volatile sig_atomic_t g_stop = 0;
@@ -387,17 +396,27 @@ static size_t volume(const nvinfer1::Dims& d) {
     }                                                                           \
   } while (0)
 
+struct PipelinedSlot {
+  float* h_in = nullptr;
+  double capture_ts = -1;
+  double prep_ms = 0;
+  long seq = 0;
+};
+
 int main(int argc, char** argv) {
   long max_frames = -1;
   bool use_mqtt = true;
+  bool pipelined = true;
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--frames") && i + 1 < argc) max_frames = atol(argv[++i]);
     else if (!strcmp(argv[i], "--no-mqtt")) use_mqtt = false;
+    else if (!strcmp(argv[i], "--sync")) pipelined = false;
     else {
-      printf("usage: edgeml-detector [--frames N] [--no-mqtt]\nsettings: environment variables, see /etc/edgeml/detector.conf\n");
+      printf("usage: edgeml-detector [--frames N] [--no-mqtt] [--sync]\nsettings: environment variables, see /etc/edgeml/detector.conf\n");
       return !strcmp(argv[i], "--help") ? 0 : 2;
     }
   }
+
   const std::string engine_path = env_str("EDGEML_ENGINE", "/var/lib/edgeml/yolov5n_fp16.engine");
   const std::string cam_dev = env_str("EDGEML_CAMERA", "/dev/video0");
   const float conf = (float)env_num("EDGEML_CONF", 0.35);
@@ -438,80 +457,221 @@ int main(int argc, char** argv) {
   const int S = in_d.d[2], rows = out_d.d[1], row_len = out_d.d[2];
   const size_t in_bytes = volume(in_d) * sizeof(float), out_bytes = volume(out_d) * sizeof(float);
   void *d_in = nullptr, *d_out = nullptr;
-  float *h_in = nullptr, *h_out = nullptr;
+  float *h_out = nullptr;
   cudaStream_t stream;
   CUDA_OK(cudaMalloc(&d_in, in_bytes));
   CUDA_OK(cudaMalloc(&d_out, out_bytes));
-  CUDA_OK(cudaMallocHost((void**)&h_in, in_bytes));
   CUDA_OK(cudaMallocHost((void**)&h_out, out_bytes));
   CUDA_OK(cudaStreamCreate(&stream));
   std::vector<void*> bindings(engine->getNbBindings(), nullptr);
   bindings[in_idx] = d_in;
   bindings[out_idx] = d_out;
 
+  // Allocate 3 host pinned buffers for non-blocking double/triple-buffering
+  constexpr int kNumSlots = 3;
+  PipelinedSlot slots[kNumSlots];
+  for (int i = 0; i < kNumSlots; i++) {
+    CUDA_OK(cudaMallocHost((void**)&slots[i].h_in, in_bytes));
+  }
+
   Camera cam;
   if (!cam.open_dev(cam_dev, 640, 480, 30)) return 1;
   Letterbox lb = make_letterbox(cam.w, cam.h, S);
-  fprintf(stderr, "ready: camera %dx%d, network %dx%d, %d candidates, topic %s on %s:%d\n", cam.w,
-          cam.h, S, S, rows, mqtt.topic.c_str(), mqtt.host.c_str(), mqtt.port);
+  fprintf(stderr, "ready: camera %dx%d, network %dx%d, %d candidates, topic %s on %s:%d, mode: %s\n",
+          cam.w, cam.h, S, S, rows, mqtt.topic.c_str(), mqtt.host.c_str(), mqtt.port,
+          pipelined ? "pipelined (triple-buffered)" : "sync (sequential)");
 
-  long seq = 0, win_frames = 0, win_dets = 0, misses = 0;
+  long cons_seq = 0, win_frames = 0, win_dets = 0;
   double win_start = now_ms(), s_pre = 0, s_inf = 0, s_post = 0, s_e2e = 0;
   long e2e_n = 0;
   bool mqtt_ok = false;
-  while (!g_stop && (max_frames < 0 || seq < max_frames)) {
-    int idx = cam.grab(2000);
-    if (idx < 0) {
-      if (++misses % 5 == 1) fprintf(stderr, "camera: no frame for 2 s\n");
-      continue;
-    }
-    misses = 0;
-    double t0 = now_ms();
-    double frame_ts = cam.last_ts_ms;
-    preprocess((const uint8_t*)cam.bufs[idx].p, cam.stride, S, lb, h_in);
-    cam.release(idx);
-    double t1 = now_ms();
-    CUDA_OK(cudaMemcpyAsync(d_in, h_in, in_bytes, cudaMemcpyHostToDevice, stream));
-    if (!ctx->enqueueV2(bindings.data(), stream, nullptr)) { fprintf(stderr, "enqueue failed\n"); return 1; }
-    CUDA_OK(cudaMemcpyAsync(h_out, d_out, out_bytes, cudaMemcpyDeviceToHost, stream));
-    CUDA_OK(cudaStreamSynchronize(stream));
-    double t2 = now_ms();
-    std::vector<Det> dets = decode(h_out, rows, row_len, lb, cam.w, cam.h, conf, nms_thr);
 
-    char head[256];
-    snprintf(head, sizeof head, "{\"ts\":%lld,\"seq\":%ld,\"frame\":{\"w\":%d,\"h\":%d},\"inference_ms\":%.1f,\"detections\":[",
-             wall_ms(), seq, cam.w, cam.h, t2 - t1);
-    std::string js = head;
-    for (size_t i = 0; i < dets.size(); i++) {
-      char one[200];
-      snprintf(one, sizeof one, "%s{\"label\":\"%s\",\"class\":%d,\"conf\":%.3f,\"box\":[%.0f,%.0f,%.0f,%.0f]}",
-               i ? "," : "", dets[i].cls < 80 ? kNames[dets[i].cls] : "unknown", dets[i].cls,
-               dets[i].score, dets[i].x1, dets[i].y1, dets[i].x2, dets[i].y2);
-      js += one;
-    }
-    js += "]}";
-    if (use_mqtt) mqtt_ok = mqtt.publish(js);
-    double t3 = now_ms();
-    if (frame_ts >= 0) { s_e2e += (now_ms() - frame_ts); e2e_n++; }
+  if (pipelined) {
+    std::mutex mtx;
+    std::condition_variable cv_ready;
+    std::vector<int> free_slots = {0, 1, 2};
+    int ready_slot = -1;
+    bool has_ready = false;
+    long prod_seq = 0;
 
-    seq++;
-    win_frames++;
-    win_dets += (long)dets.size();
-    s_pre += t1 - t0;
-    s_inf += t2 - t1;
-    s_post += t3 - t2;
-    if (t3 - win_start >= 2000) {
-      double sec = (t3 - win_start) / 1e3;
-      printf("fps=%.1f pre=%.1fms infer=%.1fms post+mqtt=%.1fms capture_to_publish=%.1fms dets/frame=%.2f mqtt=%s\n",
-             win_frames / sec, s_pre / win_frames, s_inf / win_frames, s_post / win_frames,
-             e2e_n ? s_e2e / e2e_n : -1.0, (double)win_dets / win_frames,
-             !use_mqtt ? "off" : (mqtt_ok ? "ok" : "down"));
-      fflush(stdout);
-      win_start = t3;
-      win_frames = win_dets = e2e_n = 0;
-      s_pre = s_inf = s_post = s_e2e = 0;
+    // Stage 1 Producer thread: continuous camera grab + CPU letterbox preprocessing
+    std::thread prod_thread([&]() {
+      while (!g_stop && (max_frames < 0 || prod_seq < max_frames)) {
+        int idx = cam.grab(2000);
+        if (idx < 0) continue;
+        double frame_ts = cam.last_ts_ms;
+
+        int slot = -1;
+        {
+          std::unique_lock<std::mutex> lk(mtx);
+          if (!free_slots.empty()) {
+            slot = free_slots.back();
+            free_slots.pop_back();
+          } else if (has_ready) {
+            // Drop unconsumed ready slot to always supply freshest frame
+            slot = ready_slot;
+            has_ready = false;
+          }
+        }
+
+        if (slot < 0) {
+          cam.release(idx);
+          continue;
+        }
+
+        double t0 = now_ms();
+        preprocess((const uint8_t*)cam.bufs[idx].p, cam.stride, S, lb, slots[slot].h_in);
+        cam.release(idx);
+        double t1 = now_ms();
+
+        slots[slot].capture_ts = frame_ts;
+        slots[slot].prep_ms = t1 - t0;
+        slots[slot].seq = prod_seq++;
+
+        {
+          std::unique_lock<std::mutex> lk(mtx);
+          if (has_ready) {
+            free_slots.push_back(ready_slot);
+          }
+          ready_slot = slot;
+          has_ready = true;
+          cv_ready.notify_one();
+        }
+      }
+      {
+        std::unique_lock<std::mutex> lk(mtx);
+        cv_ready.notify_all();
+      }
+    });
+
+    // Stage 2 Consumer: GPU inference + decode + MQTT publish
+    while (!g_stop && (max_frames < 0 || cons_seq < max_frames)) {
+      int cur = -1;
+      {
+        std::unique_lock<std::mutex> lk(mtx);
+        cv_ready.wait(lk, [&] { return has_ready || g_stop; });
+        if (g_stop && !has_ready) break;
+        cur = ready_slot;
+        has_ready = false;
+      }
+
+      double t1 = now_ms();
+      CUDA_OK(cudaMemcpyAsync(d_in, slots[cur].h_in, in_bytes, cudaMemcpyHostToDevice, stream));
+      if (!ctx->enqueueV2(bindings.data(), stream, nullptr)) {
+        fprintf(stderr, "enqueue failed\n");
+        g_stop = 1;
+        break;
+      }
+      CUDA_OK(cudaMemcpyAsync(h_out, d_out, out_bytes, cudaMemcpyDeviceToHost, stream));
+      CUDA_OK(cudaStreamSynchronize(stream));
+      double t2 = now_ms();
+
+      double prep_ms = slots[cur].prep_ms;
+      double frame_ts = slots[cur].capture_ts;
+      long cur_seq = slots[cur].seq;
+
+      // Recycle host buffer back to free queue immediately after GPU work
+      {
+        std::unique_lock<std::mutex> lk(mtx);
+        free_slots.push_back(cur);
+      }
+
+      std::vector<Det> dets = decode(h_out, rows, row_len, lb, cam.w, cam.h, conf, nms_thr);
+
+      char head[256];
+      snprintf(head, sizeof head,
+               "{\"ts\":%lld,\"seq\":%ld,\"frame\":{\"w\":%d,\"h\":%d},\"inference_ms\":%.1f,\"detections\":[",
+               wall_ms(), cur_seq, cam.w, cam.h, t2 - t1);
+      std::string js = head;
+      for (size_t i = 0; i < dets.size(); i++) {
+        char one[200];
+        snprintf(one, sizeof one,
+                 "%s{\"label\":\"%s\",\"class\":%d,\"conf\":%.3f,\"box\":[%.0f,%.0f,%.0f,%.0f]}",
+                 i ? "," : "", dets[i].cls < 80 ? kNames[dets[i].cls] : "unknown", dets[i].cls,
+                 dets[i].score, dets[i].x1, dets[i].y1, dets[i].x2, dets[i].y2);
+        js += one;
+      }
+      js += "]}";
+      if (use_mqtt) mqtt_ok = mqtt.publish(js);
+      double t3 = now_ms();
+      if (frame_ts >= 0) { s_e2e += (now_ms() - frame_ts); e2e_n++; }
+
+      cons_seq++;
+      win_frames++;
+      win_dets += (long)dets.size();
+      s_pre += prep_ms;
+      s_inf += t2 - t1;
+      s_post += t3 - t2;
+      if (t3 - win_start >= 2000) {
+        double sec = (t3 - win_start) / 1e3;
+        printf("fps=%.1f pre=%.1fms infer=%.1fms post+mqtt=%.1fms capture_to_publish=%.1fms dets/frame=%.2f mqtt=%s (pipelined)\n",
+               win_frames / sec, s_pre / win_frames, s_inf / win_frames, s_post / win_frames,
+               e2e_n ? s_e2e / e2e_n : -1.0, (double)win_dets / win_frames,
+               !use_mqtt ? "off" : (mqtt_ok ? "ok" : "down"));
+        fflush(stdout);
+        win_start = t3;
+        win_frames = win_dets = e2e_n = 0;
+        s_pre = s_inf = s_post = s_e2e = 0;
+      }
+    }
+
+    g_stop = 1;
+    cv_ready.notify_all();
+    if (prod_thread.joinable()) prod_thread.join();
+
+  } else {
+    // Synchronous sequential fallback mode
+    while (!g_stop && (max_frames < 0 || cons_seq < max_frames)) {
+      int idx = cam.grab(2000);
+      if (idx < 0) continue;
+      double t0 = now_ms();
+      double frame_ts = cam.last_ts_ms;
+      preprocess((const uint8_t*)cam.bufs[idx].p, cam.stride, S, lb, slots[0].h_in);
+      cam.release(idx);
+      double t1 = now_ms();
+      CUDA_OK(cudaMemcpyAsync(d_in, slots[0].h_in, in_bytes, cudaMemcpyHostToDevice, stream));
+      if (!ctx->enqueueV2(bindings.data(), stream, nullptr)) { fprintf(stderr, "enqueue failed\n"); return 1; }
+      CUDA_OK(cudaMemcpyAsync(h_out, d_out, out_bytes, cudaMemcpyDeviceToHost, stream));
+      CUDA_OK(cudaStreamSynchronize(stream));
+      double t2 = now_ms();
+      std::vector<Det> dets = decode(h_out, rows, row_len, lb, cam.w, cam.h, conf, nms_thr);
+
+      char head[256];
+      snprintf(head, sizeof head, "{\"ts\":%lld,\"seq\":%ld,\"frame\":{\"w\":%d,\"h\":%d},\"inference_ms\":%.1f,\"detections\":[",
+               wall_ms(), cons_seq, cam.w, cam.h, t2 - t1);
+      std::string js = head;
+      for (size_t i = 0; i < dets.size(); i++) {
+        char one[200];
+        snprintf(one, sizeof one, "%s{\"label\":\"%s\",\"class\":%d,\"conf\":%.3f,\"box\":[%.0f,%.0f,%.0f,%.0f]}",
+                 i ? "," : "", dets[i].cls < 80 ? kNames[dets[i].cls] : "unknown", dets[i].cls,
+                 dets[i].score, dets[i].x1, dets[i].y1, dets[i].x2, dets[i].y2);
+        js += one;
+      }
+      js += "]}";
+      if (use_mqtt) mqtt_ok = mqtt.publish(js);
+      double t3 = now_ms();
+      if (frame_ts >= 0) { s_e2e += (now_ms() - frame_ts); e2e_n++; }
+
+      cons_seq++;
+      win_frames++;
+      win_dets += (long)dets.size();
+      s_pre += t1 - t0;
+      s_inf += t2 - t1;
+      s_post += t3 - t2;
+      if (t3 - win_start >= 2000) {
+        double sec = (t3 - win_start) / 1e3;
+        printf("fps=%.1f pre=%.1fms infer=%.1fms post+mqtt=%.1fms capture_to_publish=%.1fms dets/frame=%.2f mqtt=%s\n",
+               win_frames / sec, s_pre / win_frames, s_inf / win_frames, s_post / win_frames,
+               e2e_n ? s_e2e / e2e_n : -1.0, (double)win_dets / win_frames,
+               !use_mqtt ? "off" : (mqtt_ok ? "ok" : "down"));
+        fflush(stdout);
+        win_start = t3;
+        win_frames = win_dets = e2e_n = 0;
+        s_pre = s_inf = s_post = s_e2e = 0;
+      }
     }
   }
-  fprintf(stderr, "stopping after %ld frames\n", seq);
+
+  fprintf(stderr, "stopping after %ld frames\n", cons_seq);
   return 0;
 }

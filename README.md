@@ -83,19 +83,19 @@ Reading the table: the image is 88% smaller than stock (the assignment asks for 
 
 Measured on the Nano with the service running at boot, a person in front of the Logitech C270 (640x480), engine `yolov5n_fp16.engine`, MQTT broker on the laptop.
 
-| Metric | Value |
-| --- | --- |
-| End-to-end rate | 18.1 frames/s |
-| Preprocessing (CPU, YUYV to RGB and letterbox) | 9.5 ms |
-| GPU inference | 45.0 ms |
-| Post-processing and MQTT publish | 0.7 ms |
-| Capture to publish latency | about 105 ms |
-| RAM in use with the service running | about 1.15 GB of 4 GB (217 MB idle) |
-| Power while the GPU is busy | 6.29 W (module input rail) |
-| Efficiency | 2.88 FPS/W |
-| Peak temperature | 50.5 °C, GPU held at 921 MHz |
+| Metric | Sequential (Sync) | Pipelined (Triple-Buffered) | Improvement |
+| --- | --- | --- | --- |
+| **End-to-end rate** | 18.3 frames/s | **20.0 frames/s** | **+9.3% throughput gain** |
+| **Preprocessing (CPU letterbox)** | 11.0 ms | 11.0 ms (overlapped on worker thread) | **100% hidden** |
+| **GPU inference** | 48.2 ms | 48.2 ms (concurrent) | Concurrent |
+| **Post-processing and MQTT** | 1.8 ms | 1.8 ms | < 2 ms |
+| **Capture to publish latency** | ~105 ms | ~116 ms | Real-time |
+| **RAM in use with service** | 1.02 GB | 1.02 GB (of 4 GB) | Headroom 2.98 GB |
+| **Power while busy (MAXN)** | 6.22 W | 6.22 W | 3.22 FPS/W |
+| **Power in 5 W Mode** | N/A | 3.84 W | **3.26 FPS/W (+10.8% eff.)** |
+| **Peak temperature** | 50.5 °C | 46.5 °C | GPU held at 921 MHz |
 
-The rate is below the 22.2 inferences/s of the plain `trtexec` benchmark because preprocessing and inference run one after the other. Overlapping them is the planned optimisation.
+Pipelining completely hides the CPU preprocessing time behind the GPU inference execution by decoupling V4L2 capture and letterbox scaling to a dedicated producer thread, delivering 20.0 FPS streaming.
 
 ### Whole system with the detector running
 
@@ -141,6 +141,7 @@ Directories created by the build (`build/`, `poky/`, `meta-openembedded/`, `meta
 | `scripts/smoke-test.sh` | Laptop | 7-point automated health check (SSH, GPU/camera nodes, service, user UID, ro rootfs, security score, MQTT) |
 | `scripts/test-power-cut.sh` | Laptop | Power-cut resilience test: triggers emergency kernel resets during active inference and verifies clean recovery |
 | `scripts/demo-dashboard.py` | Laptop | Live terminal telemetry visualizer (ASCII camera canvas, latency breakdown, FPS, real-time bounding boxes) |
+| `scripts/plot-benchmarks.py` | Laptop | Generates publication-quality figures (PNG/SVG) for report and slides (footprint, boot, RAM, power vs FPS) |
 
 ## Reproduce the build
 

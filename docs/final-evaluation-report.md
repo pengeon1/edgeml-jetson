@@ -361,3 +361,4 @@ cd edgeml-jetson
 ## 12. Conclusion
 
 The **edgeml-jetson** platform proves that application-specific Linux engineering yields massive benefits for edge AI deployments. By stripping away desktop bloat, trimming 625 unnecessary kernel options, silencing boot consoles, sandboxing unit services, and mounting root filesystems read-only, we achieved an **89% smaller image**, **70% faster boot**, and **68% lower RAM footprint** while maintaining **100% inference performance parity** and **complete immunity to power-cut corruption**.
+

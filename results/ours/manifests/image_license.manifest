@@ -1,0 +1,25 @@
+RECIPE NAME: bootlogo-prebuilt
+VERSION: 32.7.6
+LICENSE: Proprietary
+FILES: bootlogo-jetson-nano-devkit-32.7.6-r0.blob
+
+RECIPE NAME: cboot-prebuilt
+VERSION: 32.7.6
+LICENSE: Proprietary
+FILES: cboot-jetson-nano-devkit-32.7.6-r0.bin
+
+RECIPE NAME: linux-tegra
+VERSION: 4.9.337+gitAUTOINC+d4116ecb5c
+LICENSE: GPL-2.0-only
+FILES: modules--4.9.337+git0+d4116ecb5c-r0-jetson-nano-devkit-20261106064652.tgz Image--4.9.337+git0+d4116ecb5c-r0-jetson-nano-devkit-20261106064652.bin tegra210-p3448-0000-p3449-0000-a02--4.9.337+git0+d4116ecb5c-r0-jetson-nano-devkit-20261106064652.dtb tegra210-p3448-0000-p3449-0000-b00--4.9.337+git0+d4116ecb5c-r0-jetson-nano-devkit-20261106064652.dtb
+
+RECIPE NAME: tos-prebuilt
+VERSION: 32.7.6
+LICENSE: Proprietary
+FILES: tos-jetson-nano-devkit-32.7.6-r0.img
+
+RECIPE NAME: u-boot-tegra
+VERSION: 2022.01+gAUTOINC+894fa67d7f
+LICENSE: GPL-2.0-or-later
+FILES: fw_env.config-jetson-nano-devkit-2022.01+gAUTOINC+894fa67d7f-r0 extlinux.conf-jetson-nano-devkit-r0 u-boot-jetson-nano-devkit-2022.01+gAUTOINC+894fa67d7f-r0.bin u-boot-initial-env-jetson-nano-devkit-2022.01+gAUTOINC+894fa67d7f-r0
+

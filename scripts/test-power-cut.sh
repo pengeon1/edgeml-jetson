@@ -105,3 +105,4 @@ done
 
 echo "" | tee -a "$LOGFILE"
 echo "=== Resilience Test Complete: $CYCLES / $CYCLES cycles passed with zero corruption! ===" | tee -a "$LOGFILE"
+

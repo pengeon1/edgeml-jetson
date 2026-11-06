@@ -20,7 +20,7 @@ An application-specific Linux distribution for **edge ML inference on the NVIDIA
 | Clock fixed and LLMNR (port 5355) closed (`meta-edgeml`) | Done |
 | Read-only root, hardening, auto-start service | Done (service sandboxing: 9.6 -> 3.2 exposure, SSH key-only, sysctl, ro-rootfs) |
 | Power-cut resilience and automated smoke test | Done (5/5 cycles survived, 0 corruption, scripts/smoke-test.sh and scripts/test-power-cut.sh) |
-| Final benchmarks, report, demo video | In progress |
+| Final evaluation report and demo dashboard | Done: report in `docs/final-evaluation-report.md`, live dashboard in `scripts/demo-dashboard.py` |
 
 ## Hardware and host
 
@@ -140,6 +140,7 @@ Directories created by the build (`build/`, `poky/`, `meta-openembedded/`, `meta
 | `scripts/summarize-power.sh` | Laptop or Nano | Average power while the GPU is busy (or all samples with a third argument of 0), GPU clocks, peak temperature, FPS per watt |
 | `scripts/smoke-test.sh` | Laptop | 7-point automated health check (SSH, GPU/camera nodes, service, user UID, ro rootfs, security score, MQTT) |
 | `scripts/test-power-cut.sh` | Laptop | Power-cut resilience test: triggers emergency kernel resets during active inference and verifies clean recovery |
+| `scripts/demo-dashboard.py` | Laptop | Live terminal telemetry visualizer (ASCII camera canvas, latency breakdown, FPS, real-time bounding boxes) |
 
 ## Reproduce the build
 

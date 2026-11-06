@@ -1,0 +1,77 @@
+=== EdgeML Power-Cut Resilience Test ===
+Target: nano-usb
+Planned cycles: 5
+Timestamp: Fri Nov  6 07:44:04 AM UTC 2026
+----------------------------------------
+
+>>> Cycle 1 / 5: Initial verification...
+  Detector status before cut: active
+  Root mount state: ro
+  Pre-cut detection sample: {"ts":1703435285410,"seq":17575,"frame":{"w":640,"h":480},"inference_ms":44.6,"detections":[]}
+  [TRIGGER] Simulating abrupt power cut (SysRq emergency restart)...
+  Reset signal sent. Waiting for board to drop and reboot...
+  [RECOVERED] Board back online in ~4s
+  Post-reboot rootfs mount: ro
+  Filesystem integrity: CLEAN (zero EXT4-fs errors)
+  Detector auto-start status: active
+  [PASS] MQTT stream resumed successfully:
+         {"ts":1703435291532,"seq":17687,"frame":{"w":640,"h":480},"inference_ms":44.6,"detections":[]}
+  Cycle 1 completed successfully.
+
+>>> Cycle 2 / 5: Initial verification...
+  Detector status before cut: active
+  Root mount state: ro
+  Pre-cut detection sample: {"ts":1703435294211,"seq":17736,"frame":{"w":640,"h":480},"inference_ms":44.8,"detections":[]}
+  [TRIGGER] Simulating abrupt power cut (SysRq emergency restart)...
+  Reset signal sent. Waiting for board to drop and reboot...
+  [RECOVERED] Board back online in ~4s
+  Post-reboot rootfs mount: ro
+  Filesystem integrity: CLEAN (zero EXT4-fs errors)
+  Detector auto-start status: active
+  [PASS] MQTT stream resumed successfully:
+         {"ts":1703435300332,"seq":17848,"frame":{"w":640,"h":480},"inference_ms":44.7,"detections":[]}
+  Cycle 2 completed successfully.
+
+>>> Cycle 3 / 5: Initial verification...
+  Detector status before cut: active
+  Root mount state: ro
+  Pre-cut detection sample: {"ts":1703435303012,"seq":17897,"frame":{"w":640,"h":480},"inference_ms":44.9,"detections":[]}
+  [TRIGGER] Simulating abrupt power cut (SysRq emergency restart)...
+  Reset signal sent. Waiting for board to drop and reboot...
+  [RECOVERED] Board back online in ~3s
+  Post-reboot rootfs mount: ro
+  Filesystem integrity: CLEAN (zero EXT4-fs errors)
+  Detector auto-start status: active
+  [PASS] MQTT stream resumed successfully:
+         {"ts":1703435309132,"seq":18009,"frame":{"w":640,"h":480},"inference_ms":44.7,"detections":[]}
+  Cycle 3 completed successfully.
+
+>>> Cycle 4 / 5: Initial verification...
+  Detector status before cut: active
+  Root mount state: ro
+  Pre-cut detection sample: {"ts":1703435311919,"seq":18060,"frame":{"w":640,"h":480},"inference_ms":44.7,"detections":[]}
+  [TRIGGER] Simulating abrupt power cut (SysRq emergency restart)...
+  Reset signal sent. Waiting for board to drop and reboot...
+  [RECOVERED] Board back online in ~3s
+  Post-reboot rootfs mount: ro
+  Filesystem integrity: CLEAN (zero EXT4-fs errors)
+  Detector auto-start status: active
+  [PASS] MQTT stream resumed successfully:
+         {"ts":1703435318204,"seq":18175,"frame":{"w":640,"h":480},"inference_ms":44.8,"detections":[]}
+  Cycle 4 completed successfully.
+
+>>> Cycle 5 / 5: Initial verification...
+  Detector status before cut: active
+  Root mount state: ro
+  Pre-cut detection sample: {"ts":1703435320883,"seq":18224,"frame":{"w":640,"h":480},"inference_ms":44.9,"detections":[]}
+  [TRIGGER] Simulating abrupt power cut (SysRq emergency restart)...
+  Reset signal sent. Waiting for board to drop and reboot...
+  [RECOVERED] Board back online in ~3s
+  Post-reboot rootfs mount: ro
+  Filesystem integrity: CLEAN (zero EXT4-fs errors)
+  Detector auto-start status: active
+  [PASS] MQTT stream resumed successfully:
+         {"ts":1703435327006,"seq":18336,"frame":{"w":640,"h":480},"inference_ms":44.8,"detections":[]}
+  Cycle 5 completed successfully.
+
+=== Resilience Test Complete: 5 / 5 cycles passed with zero corruption! ===

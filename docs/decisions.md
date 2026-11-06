@@ -2,6 +2,11 @@
 
 Newest first. Each entry says what was decided, why, and what was rejected.
 
+## 2026-11-06: power-cut resilience verification and smoke testing
+
+- **Power-cut testing method:** Tested resilience against abrupt ungraceful power loss by triggering emergency hardware resets (`echo b > /proc/sysrq-trigger`) during active TensorRT inference and MQTT publishing. Completed 5 consecutive abrupt power-loss cycles (`scripts/test-power-cut.sh`). In 5 out of 5 cycles, the system recovered within 3-4 seconds, remounted the root filesystem cleanly as `ro` with zero EXT4 filesystem corruption or journal errors, auto-started `edgeml-detector.service`, and resumed live MQTT inference output at 18.2 FPS.
+- **Automated smoke test suite:** Created `scripts/smoke-test.sh` to provide one-command regression testing across 7 areas: SSH connectivity, GPU/camera character device nodes, detector service state, unprivileged user ID execution (`UID 1200`), read-only mount enforcement, systemd security exposure rating (3.2 OK), and live MQTT JSON reception.
+
 ## 2026-11-06: hardening and read-only rootfs (systemd sandboxing, udev rules for GPU, SSH key-only, sysctl)
 
 - **Service sandboxing:** `edgeml-detector.service` runs as an unprivileged dedicated system user (`edgeml:video`, UID 1200) instead of root. Hardened with `NoNewPrivileges=true`, `ProtectSystem=strict`, `ProtectHome=true`, `PrivateTmp=true`, `ProtectKernelTunables=true`, `ProtectKernelModules=true`, `ProtectControlGroups=true`, `RestrictRealtime=true`, `RestrictSUIDSGID=true`, `RestrictAddressFamilies=AF_UNIX AF_INET`, and `DevicePolicy=closed`. `systemd-analyze security edgeml-detector` dropped the exposure rating from **9.6 UNSAFE** to **3.2 OK** (67% reduction) while maintaining full 18.2 FPS inference throughput and MQTT publishing.

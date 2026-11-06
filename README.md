@@ -19,6 +19,7 @@ An application-specific Linux distribution for **edge ML inference on the NVIDIA
 | Kernel trimming (before and after numbers) | Done: 28.5 MB Image (-26%), 52.1 MB modules (-39%), 1,763 options (-625) |
 | Clock fixed and LLMNR (port 5355) closed (`meta-edgeml`) | Done |
 | Read-only root, hardening, auto-start service | Done (service sandboxing: 9.6 -> 3.2 exposure, SSH key-only, sysctl, ro-rootfs) |
+| Power-cut resilience and automated smoke test | Done (5/5 cycles survived, 0 corruption, scripts/smoke-test.sh and scripts/test-power-cut.sh) |
 | Final benchmarks, report, demo video | In progress |
 
 ## Hardware and host
@@ -137,6 +138,8 @@ Directories created by the build (`build/`, `poky/`, `meta-openembedded/`, `meta
 | `scripts/bench-trtexec.sh` | Nano | Fixes the clocks, logs power, runs `trtexec` several times |
 | `scripts/summarize-runs.sh` | Laptop or Nano | Mean ± standard deviation of throughput and latency over the runs |
 | `scripts/summarize-power.sh` | Laptop or Nano | Average power while the GPU is busy (or all samples with a third argument of 0), GPU clocks, peak temperature, FPS per watt |
+| `scripts/smoke-test.sh` | Laptop | 7-point automated health check (SSH, GPU/camera nodes, service, user UID, ro rootfs, security score, MQTT) |
+| `scripts/test-power-cut.sh` | Laptop | Power-cut resilience test: triggers emergency kernel resets during active inference and verifies clean recovery |
 
 ## Reproduce the build
 
@@ -167,6 +170,15 @@ Flashing and first login are in [docs/build-and-flash.md](docs/build-and-flash.m
 - Everything else comes from the Yocto Project and OpenEmbedded layers under their own open-source licences. The build produces a per-package licence manifest.
 
 ## Progress log
+
+### 2026-11-06 (Power-cut resilience and automated smoke testing)
+- **Power-cut resilience:** Verified read-only rootfs resilience against unexpected power cuts by running 5 consecutive cycles of kernel emergency resets (`SysRq 'b'`) during active inference and MQTT publishing via `scripts/test-power-cut.sh`. Results:
+  - All 5/5 cycles recovered cleanly within 3-4 seconds.
+  - Zero filesystem corruption (dmesg showed 0 `EXT4-fs errors`).
+  - `edgeml-detector.service` automatically started upon boot.
+  - Detections resumed publishing to the laptop broker over MQTT immediately at 18.2 FPS.
+  - Raw test log saved in `results/ours/reliability/power-cut-test.log`.
+- **Smoke test script:** Added `scripts/smoke-test.sh` to validate system health across 7 key checkpoints: SSH reachability, device nodes (`/dev/video0`, `/dev/nvmap`, `/dev/nvhost-gpu`), service active state, sandboxed execution (`UID 1200`), read-only rootfs mount, security exposure score (`3.2 OK`), and live MQTT JSON reception.
 
 ### 2026-11-06 (Step 7: Service sandboxing, SSH hardening, sysctl, read-only rootfs)
 - **Service sandboxing:** `edgeml-detector.service` runs as dedicated system user `edgeml:video` (UID 1200) with strict sandboxing: `NoNewPrivileges=true`, `ProtectSystem=strict`, `ProtectHome=true`, `PrivateTmp=true`, `ProtectKernelTunables=true`, `ProtectKernelModules=true`, `ProtectControlGroups=true`, `RestrictRealtime=true`, `RestrictSUIDSGID=true`, `RestrictAddressFamilies=AF_UNIX AF_INET`, and `DevicePolicy=closed`.

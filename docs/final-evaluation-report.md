@@ -309,7 +309,20 @@ Under the assignment rules, proprietary binary packages are permitted only if ex
 
 ## 9. Live Demo & Visualizer Infrastructure
 
-To provide a visual demonstration of the headless pipeline, a zero-dependency ANSI telemetry dashboard was developed in [`scripts/demo-dashboard.py`](file:///home/piyush/edgeml-jetson/scripts/demo-dashboard.py):
+To provide a visual demonstration of the headless pipeline, two zero-dependency visualizers were developed:
+
+### 9.1 Interactive Browser Web Dashboard (`scripts/web-dashboard.py`)
+Directly fulfilling the Track A specification requirement (*"Open `http://<nano-ip>:8080` in the laptop browser to see the video/detections. This is your demo, with no monitor on the Nano"*):
+- **Zero-Dependency Web Server:** Implemented in pure Python using standard library (`http.server`, `threading`, `queue`) and native browser APIs (HTML5 Canvas, Server-Sent Events `EventSource`). Requires no `pip` packages or frontend frameworks.
+- **Interactive UI (`http://localhost:8080`):**
+  - **Live Camera Viewport:** 640×480 HTML5 Canvas rendering real-time glowing bounding boxes, target crosshairs, corner brackets, class labels, and confidence tags.
+  - **Telemetry Cards:** Instantaneous pipeline throughput (**20.0 FPS**), TensorRT inference latency (**47.8 ms** vs 55 ms budget), and frame sequence counters.
+  - **Real-Time Sparklines:** Dynamic rolling line charts plotting throughput and latency across the last 35 frames.
+  - **Real-Time Detection Feed:** Scrolling tabular audit log displaying sequence numbers, detected classes, confidence percentages, and coordinates `[x1, y1, x2, y2]`.
+  - **System Badges:** Verifies active hardware acceleration, sandboxed user execution (`UID 1200`), read-only rootfs status, and systemd exposure score (`3.2 OK`).
+
+### 9.2 Terminal Telemetry Dashboard (`scripts/demo-dashboard.py`)
+A fast, lightweight console dashboard:
 - Connects to the host Mosquitto broker on `localhost:1883`.
 - Consumes JSON payloads from `edgeml/detections`.
 - Renders real-time FPS, inference latency bars, confidence scores, and an ASCII camera canvas projecting detected bounding boxes in real time.

@@ -141,6 +141,7 @@ Directories created by the build (`build/`, `poky/`, `meta-openembedded/`, `meta
 | `scripts/smoke-test.sh` | Laptop | 7-point automated health check (SSH, GPU/camera nodes, service, user UID, ro rootfs, security score, MQTT) |
 | `scripts/test-power-cut.sh` | Laptop | Power-cut resilience test: triggers emergency kernel resets during active inference and verifies clean recovery |
 | `scripts/demo-dashboard.py` | Laptop | Live terminal telemetry visualizer (ASCII camera canvas, latency breakdown, FPS, real-time bounding boxes) |
+| `scripts/web-dashboard.py` | Laptop | Interactive browser-based telemetry & bounding box dashboard (`http://localhost:8080`, zero dependencies) |
 | `scripts/plot-benchmarks.py` | Laptop | Generates publication-quality figures (PNG/SVG) for report and slides (footprint, boot, RAM, power vs FPS) |
 
 ## Reproduce the build

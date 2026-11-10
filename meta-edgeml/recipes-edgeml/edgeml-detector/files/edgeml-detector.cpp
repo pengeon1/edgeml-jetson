@@ -160,6 +160,7 @@ struct Camera {
     pf.events = POLLIN;
     pf.revents = 0;
     if (poll(&pf, 1, timeout_ms) <= 0) return -1;
+    if (pf.revents & (POLLERR | POLLHUP | POLLNVAL)) return -1;
     int last = -1;
     for (;;) {
       v4l2_buffer b;
@@ -421,6 +422,7 @@ int main(int argc, char** argv) {
   const std::string cam_dev = env_str("EDGEML_CAMERA", "/dev/video0");
   const float conf = (float)env_num("EDGEML_CONF", 0.35);
   const float nms_thr = (float)env_num("EDGEML_NMS", 0.45);
+  const double target_fps = env_num("EDGEML_FPS_LIMIT", 0.0);
   Mqtt mqtt;
   mqtt.host = env_str("EDGEML_BROKER", "192.168.55.100");
   mqtt.port = (int)env_num("EDGEML_PORT", 1883);
@@ -498,7 +500,10 @@ int main(int argc, char** argv) {
     std::thread prod_thread([&]() {
       while (!g_stop && (max_frames < 0 || prod_seq < max_frames)) {
         int idx = cam.grab(2000);
-        if (idx < 0) continue;
+        if (idx < 0) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(50));
+          continue;
+        }
         double frame_ts = cam.last_ts_ms;
 
         int slot = -1;
@@ -596,6 +601,14 @@ int main(int argc, char** argv) {
       double t3 = now_ms();
       if (frame_ts >= 0) { s_e2e += (now_ms() - frame_ts); e2e_n++; }
 
+      if (target_fps > 0.0) {
+        double frame_elapsed = now_ms() - t1;
+        double frame_target = 1000.0 / target_fps;
+        if (frame_elapsed < frame_target) {
+          std::this_thread::sleep_for(std::chrono::milliseconds((long)(frame_target - frame_elapsed)));
+        }
+      }
+
       cons_seq++;
       win_frames++;
       win_dets += (long)dets.size();
@@ -623,7 +636,10 @@ int main(int argc, char** argv) {
     // Synchronous sequential fallback mode
     while (!g_stop && (max_frames < 0 || cons_seq < max_frames)) {
       int idx = cam.grab(2000);
-      if (idx < 0) continue;
+      if (idx < 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        continue;
+      }
       double t0 = now_ms();
       double frame_ts = cam.last_ts_ms;
       preprocess((const uint8_t*)cam.bufs[idx].p, cam.stride, S, lb, slots[0].h_in);
@@ -651,6 +667,14 @@ int main(int argc, char** argv) {
       if (use_mqtt) mqtt_ok = mqtt.publish(js);
       double t3 = now_ms();
       if (frame_ts >= 0) { s_e2e += (now_ms() - frame_ts); e2e_n++; }
+
+      if (target_fps > 0.0) {
+        double frame_elapsed = now_ms() - t1;
+        double frame_target = 1000.0 / target_fps;
+        if (frame_elapsed < frame_target) {
+          std::this_thread::sleep_for(std::chrono::milliseconds((long)(frame_target - frame_elapsed)));
+        }
+      }
 
       cons_seq++;
       win_frames++;

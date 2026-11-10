@@ -11,3 +11,5 @@ poky/
 meta-openembedded/
 meta-tegra/
 build/
+__pycache__/
+*.pyc

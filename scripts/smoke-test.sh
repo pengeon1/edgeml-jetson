@@ -32,11 +32,18 @@ fi
 
 # 2. Hardware devices
 info "2/7: Checking GPU and camera device nodes..."
-DEV_CHECK=$(ssh "$NANO_HOST" "test -e /dev/video0 && test -e /dev/nvmap && test -e /dev/nvhost-gpu && echo OK || echo MISSING")
-if [ "$DEV_CHECK" = "OK" ]; then
-    pass "Camera (/dev/video0) and GPU (/dev/nvmap, /dev/nvhost-gpu) device nodes present"
+GPU_CHECK=$(ssh "$NANO_HOST" "test -e /dev/nvmap && test -e /dev/nvhost-gpu && echo OK || echo MISSING")
+CAM_CHECK=$(ssh "$NANO_HOST" "test -e /dev/video0 && echo OK || echo MISSING")
+
+if [ "$GPU_CHECK" != "OK" ]; then
+    fail "Critical GPU device nodes (/dev/nvmap, /dev/nvhost-gpu) are missing on $NANO_HOST"
+fi
+pass "GPU device nodes (/dev/nvmap, /dev/nvhost-gpu) present"
+
+if [ "$CAM_CHECK" = "OK" ]; then
+    pass "Camera device node (/dev/video0) present"
 else
-    fail "One or more required device nodes are missing on $NANO_HOST"
+    info "Camera node (/dev/video0) not detected (plug in USB webcam for live inference)"
 fi
 
 # 3. Detector service status
@@ -44,18 +51,30 @@ info "3/7: Checking edgeml-detector service state..."
 SVC_STATE=$(ssh "$NANO_HOST" "systemctl is-active edgeml-detector || true")
 if [ "$SVC_STATE" = "active" ]; then
     pass "edgeml-detector.service is active"
+elif [ "$CAM_CHECK" != "OK" ]; then
+    info "edgeml-detector.service is $SVC_STATE (ConditionPathExists=/dev/video0 waiting for camera)"
 else
     fail "edgeml-detector.service is $SVC_STATE (expected active)"
 fi
 
 # 4. Service sandboxing & user check
 info "4/7: Checking unprivileged execution..."
-PID=$(ssh "$NANO_HOST" "systemctl show -p MainPID --value edgeml-detector")
-SVC_UID=$(ssh "$NANO_HOST" "awk '/^Uid:/ {print \$2}' /proc/$PID/status 2>/dev/null || true")
-if [ "$SVC_UID" = "1200" ]; then
-    pass "edgeml-detector is running under unprivileged UID: $SVC_UID (edgeml)"
+PID=$(ssh "$NANO_HOST" "systemctl show -p MainPID --value edgeml-detector || echo 0")
+if [ -n "$PID" ] && [ "$PID" -gt 0 ] 2>/dev/null; then
+    SVC_UID=$(ssh "$NANO_HOST" "awk '/^Uid:/ {print \$2}' /proc/$PID/status 2>/dev/null || true")
+    if [ "$SVC_UID" = "1200" ]; then
+        pass "edgeml-detector is running under unprivileged UID: $SVC_UID (edgeml)"
+    else
+        fail "edgeml-detector is running as UID $SVC_UID (expected 1200)"
+    fi
 else
-    fail "edgeml-detector is running as UID $SVC_UID (expected 1200)"
+    CONF_USER=$(ssh "$NANO_HOST" "systemctl show -p User --value edgeml-detector")
+    CONF_UID=$(ssh "$NANO_HOST" "id -u edgeml 2>/dev/null || true")
+    if [ "$CONF_USER" = "edgeml" ] && [ "$CONF_UID" = "1200" ]; then
+        pass "edgeml-detector is configured for unprivileged user $CONF_USER (UID $CONF_UID)"
+    else
+        fail "edgeml-detector user configuration mismatch: $CONF_USER (UID $CONF_UID)"
+    fi
 fi
 
 # 5. Read-only root filesystem check
@@ -78,7 +97,9 @@ fi
 
 # 7. Live MQTT stream reception
 info "7/7: Checking live MQTT detection stream ($MQTT_TOPIC)..."
-if command -v mosquitto_sub >/dev/null 2>&1; then
+if [ "$CAM_CHECK" != "OK" ]; then
+    info "Skipping live MQTT reception test (USB camera /dev/video0 not connected)"
+elif command -v mosquitto_sub >/dev/null 2>&1; then
     MSGS=$(mosquitto_sub -t "$MQTT_TOPIC" -C 3 -W "$TIMEOUT_SECS" 2>/dev/null || true)
     if [ -n "$MSGS" ]; then
         SAMPLE=$(echo "$MSGS" | head -n 1)

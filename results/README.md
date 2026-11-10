@@ -6,8 +6,14 @@ Raw measurement logs. Never edit a log by hand: re-run the measurement and save 
 
 ```
 results/
-├── stock/    Stock JetPack 4.6.1 (L4T R32.7.1), measured 1 November 2026
-└── ours/     Our Yocto image (L4T R32.7.6)
+├── stock/         Stock JetPack 4.6.1 (L4T R32.7.1) idle, size, and TRT inference logs
+├── cuda-image/    Our Yocto image with CUDA 10.2 / TensorRT 8.2 (runs, power, tegrastats)
+├── kernel/        Kernel configs before/after trim, diffs, console silencing logs
+├── ours/          
+│   ├── manifests/   BitBake license and package manifests (image_license, license, package)
+│   ├── reliability/ Power-cut resilience stress logs (SysRq emergency reset verification)
+│   └── security/    Read-only rootfs tests, SSH hardening tests, sysctl, nmap port scans
+└── charts/        Publication-quality benchmark charts (PNG and vector SVG)
 ```
 
 ## Files

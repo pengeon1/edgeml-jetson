@@ -55,7 +55,13 @@ edgeml-detector --frames 100 --no-mqtt     # 100 frames, timings only
 systemctl reset-failed edgeml-detector && systemctl restart edgeml-detector
 ```
 
-The timing line reads `fps=18.1 pre=9.4ms infer=45.0ms post+mqtt=0.7ms capture_to_publish=105ms dets/frame=1.00 mqtt=ok`.
+The program runs in asynchronous **pipelined mode** by default (triple-buffered producer-consumer overlapping CPU letterboxing with GPU inference, delivering ~20.0 FPS). Use `--sync` to revert to sequential single-threaded execution (~18.3 FPS).
+
+The timing log reads:
+`fps=20.2 pre=10.7ms infer=48.1ms post+mqtt=1.4ms capture_to_publish=109.6ms dets/frame=1.00 mqtt=ok (pipelined)`
+
+In sequential sync mode (`--sync`):
+`fps=18.1 pre=9.4ms infer=45.0ms post+mqtt=0.7ms capture_to_publish=105ms dets/frame=1.00 mqtt=ok`
 
 ## Requirements on the engine
 

@@ -1,6 +1,11 @@
 # Track A Final Evaluation Report: Application-Specific Linux for Edge ML on Jetson Nano
 
-**Author:** Piyush  
+**Authors:**
+- Narayana Murthy S (CS24B1047)
+- Piyush Mishra (CS24B1048)
+- Ankush R (CS24B1062)
+- Mahalis Rayhan (CS24B1095)
+**Course:** CS3000 Operating Systems (Dr. Raghavan Santhanam)  
 **Target Platform:** NVIDIA Jetson Nano Developer Kit (4 GB, Maxwell GPU, Model P3450 Rev A02)  
 **Distribution:** Poky 4.0 (Kirkstone) with `meta-tegra` (L4T R32.7.6) and custom layer `meta-edgeml`  
 **Reference Baseline:** Stock JetPack 4.6.1 (L4T R32.7.1, Ubuntu 18.04 LTS, Linux 4.9.253)  

@@ -134,3 +134,4 @@ ssh nano-usb "touch /etc/hacked.txt"
 ssh nano-usb "nvpmodel -m 1"
 ```
 *(Switches from 10 W MAXN to 5 W mode; draws 3.84 W while sustaining 12.5 FPS).*
+

@@ -1,0 +1,123 @@
+================================================================================
+CS3000 Operating Systems: Live Demo Command Cheat Sheet
+Course Instructor: Dr. Raghavan Santhanam
+Team:
+  - Narayana Murthy S (CS24B1047)
+  - Piyush Mishra (CS24B1048)
+  - Ankush R (CS24B1062)
+  - Mahalis Rayhan (CS24B1095)
+Target: NVIDIA Jetson Nano 4GB (192.168.55.1 via USB / nano-usb)
+Host: Ubuntu Laptop (192.168.55.100)
+================================================================================
+
+--------------------------------------------------------------------------------
+0. PRE-DEMO HARDWARE & BROKER SETUP (Run Before Presentation)
+--------------------------------------------------------------------------------
+
+# 1. Restart local MQTT broker on laptop:
+sudo systemctl restart mosquitto
+
+# 2. Check connection to the Jetson Nano:
+ssh nano-usb "echo '=== Jetson Nano is ONLINE ==='"
+
+# 3. Check if camera is detected on the Jetson Nano:
+ssh nano-usb "ls -l /dev/video* 2>&1"
+
+# (If camera is missing, plug Logitech C270 into bottom USB port on Jetson, then run:)
+ssh nano-usb "systemctl restart edgeml-detector"
+
+
+--------------------------------------------------------------------------------
+1. MAIN LIVE DEMO SEQUENCE (3 Minutes Total)
+--------------------------------------------------------------------------------
+
+### [STEP 1] 7-Point Automated Health & Security Audit (45 seconds)
+# Presenter: Narayana Murthy S
+# Run on LAPTOP terminal:
+cd ~/edgeml-jetson
+./scripts/smoke-test.sh nano-usb
+
+# Key outputs to highlight to Dr. Raghavan:
+# - [PASS] SSH connection successful
+# - [PASS] GPU device nodes (/dev/nvmap, /dev/nvhost-gpu) present
+# - [PASS] edgeml-detector.service is active
+# - [PASS] edgeml-detector is running under unprivileged UID: 1200 (edgeml)
+# - [PASS] Root filesystem is mounted read-only (ro)
+# - [PASS] Overall exposure level: 3.2 OK (down from 9.6 UNSAFE on stock)
+# - [PASS] Received live detections over MQTT
+
+
+### [STEP 2] Live Pipelined Telemetry Dashboard (1 minute)
+# Presenter: Piyush Mishra
+# Run on LAPTOP terminal:
+python3 scripts/web-dashboard.py 8080
+
+# Now open browser on laptop:
+# http://localhost:8080
+
+# Key metrics to point out to Dr. Raghavan:
+# - Sustained 20.0 FPS inference throughput (vs 18.3 FPS sequential baseline)
+# - 48.0 ms inference latency
+# - Multithreaded triple-buffering pipeline: Core 1 handles 11ms CPU letterboxing
+#   in parallel with Core 0 running GPU TensorRT inference, hiding CPU overhead.
+# - Badges showing UID: 1200, Rootfs: ro, Security Score: 3.2 OK.
+
+
+### [STEP 3] Ungraceful Hardware Power-Cut / SysRq Reset (1 minute)
+# Presenters: Ankush R & Mahalis Rayhan
+# Run on a SECOND LAPTOP terminal while Step 2 dashboard is streaming:
+ssh nano-usb "echo 1 > /proc/sys/kernel/sysrq; echo b > /proc/sysrq-trigger"
+
+# (SSH terminates instantly. Count out loud: 1... 2... 3... 4 seconds!)
+
+# Reconnect and prove EXT4 filesystem integrity & zero journal corruption:
+ssh nano-usb "mount | grep ' on / '; dmesg | grep -i 'EXT4-fs'"
+
+# Key outputs to show Dr. Raghavan:
+# - "/dev/mmcblk0p1 on / type ext4 (ro,relatime,data=ordered)"
+# - ZERO corruption or recovery errors!
+# - Check http://localhost:8080 in browser: detection stream automatically resumed!
+
+
+--------------------------------------------------------------------------------
+2. BACKUP & DEEP-DIVE COMMANDS (If Dr. Raghavan Asks Questions)
+--------------------------------------------------------------------------------
+
+# Q: "Show me the trimmed kernel size and version"
+ssh nano-usb "uname -r; ls -lh /boot/Image"
+# Result: Linux 4.9.337, 28.5 MB kernel image (26% smaller than 38.5 MB stock).
+
+# Q: "How much RAM is the OS actually using at idle?"
+ssh nano-usb "free -m"
+# Result: ~217 MB in use, ~3.7 GB free for deep learning workloads (68% less than stock's 670 MB).
+
+# Q: "Can you prove the root filesystem is really immutable / tamper-proof?"
+ssh nano-usb "touch /etc/hacked.txt"
+# Result: touch: /etc/hacked.txt: Read-only file system
+
+# Q: "Show the systemd security sandboxing directives for the detector"
+ssh nano-usb "systemctl cat edgeml-detector.service"
+# Result: Shows User=edgeml, ProtectSystem=strict, NoNewPrivileges=true, DeviceAllow=...
+
+# Q: "Show the systemd-analyze security score comparison"
+ssh nano-usb "systemd-analyze security edgeml-detector.service"
+# Result: Overall exposure level: 3.2 OK.
+
+# Q: "Can you switch power modes dynamically?"
+# Switch to 5W mode:
+ssh nano-usb "nvpmodel -m 1"
+# Switch back to 10W MAXN mode:
+ssh nano-usb "nvpmodel -m 0"
+
+# Q: "Check live temperatures, clocks, and power rails"
+ssh nano-usb "tegrastats --interval 1000"
+# (Press Ctrl+C to exit)
+
+# Q: "Inspect active network ports on the board"
+ssh nano-usb "netstat -tulpn"
+# Result: Only SSH (port 22) is listening externally.
+
+# Q: "Check detector service logs in real time"
+ssh nano-usb "journalctl -u edgeml-detector -f"
+# Result: Prints continuous pipeline logs: fps=20.0 infer=48ms pre=11ms mqtt=ok.
+================================================================================

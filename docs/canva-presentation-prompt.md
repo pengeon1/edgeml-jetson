@@ -44,3 +44,4 @@ Please generate an 8-to-9 slide Canva presentation blueprint. For every single s
 
 Make it look like an elite conference presentation (think Apple WWDC / Google I/O meets operating systems engineering paper). Deliver the full slide-by-slide blueprint now.
 ```
+

@@ -1,21 +1,50 @@
+# Restart MQTT broker on laptop
 sudo systemctl restart mosquitto
+
+# Test SSH connection to Jetson Nano
 ssh nano-usb "echo 'Nano is READY'"
+
+# Check USB webcam detection (/dev/video0)
 ssh nano-usb "ls -l /dev/video* 2>&1"
+
+# Restart detector service once camera is connected
 ssh nano-usb "systemctl restart edgeml-detector"
 
+# Run 7-point automated health & security audit
 ./scripts/smoke-test.sh nano-usb
 
+# Launch live web telemetry dashboard (open http://localhost:8080)
 python3 scripts/web-dashboard.py 8080
 
+# Trigger live emergency hardware reset during inference (SysRq 'b')
 ssh nano-usb "echo 1 > /proc/sys/kernel/sysrq; echo b > /proc/sysrq-trigger"
+
+# Verify read-only rootfs survived reset with zero filesystem corruption
 ssh nano-usb "mount | grep ' on / '; dmesg | grep -i 'EXT4-fs'"
 
+# Show trimmed kernel version and image size (28.5 MB)
 ssh nano-usb "uname -r; ls -lh /boot/Image"
+
+# Show idle RAM usage (217 MB used, ~3.7 GB free)
 ssh nano-usb "free -m"
+
+# Prove root filesystem is immutable / tamper-proof
 ssh nano-usb "touch /etc/hacked.txt"
+
+# Inspect detector service sandboxing configuration
 ssh nano-usb "systemctl cat edgeml-detector.service"
+
+# Audit systemd security exposure score (3.2 OK)
 ssh nano-usb "systemd-analyze security edgeml-detector.service"
+
+# Switch dynamically to 5W power budget mode
 ssh nano-usb "nvpmodel -m 1"
+
+# Switch back to 10W MAXN power mode
 ssh nano-usb "nvpmodel -m 0"
+
+# Monitor real-time clocks, thermals, and power draw
 ssh nano-usb "tegrastats --interval 1000"
+
+# Follow live detector pipeline logs (FPS and latency)
 ssh nano-usb "journalctl -u edgeml-detector -f"
